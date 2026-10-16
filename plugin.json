@@ -1,0 +1,45 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-local-privacy-router",
+  "version": "0.1.0",
+  "description": "Assess every user prompt in a locally deployed main session, preserve workflow state across follow-ups, and require redaction confirmation before sensitive cloud analysis.",
+  "author": {
+    "name": "iFLYTEK"
+  },
+  "license": "MIT",
+  "keywords": [
+    "routing",
+    "privacy",
+    "redaction",
+    "subagent",
+    "codex"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Edge-Cloud Collaboration",
+        "shortDescription": "Local and cloud model routing",
+        "longDescription": "Assess every user prompt in the locally deployed main session, including follow-ups and confirmations. Preserve valid workflow state. Keep simple tasks local and send complex, non-sensitive tasks directly to a cloud large-model subagent. When several eligible models are available, let the user choose and explicitly set the runtime model. Redact complex, sensitive material locally and obtain human confirmation before handing off only the sanitized content. Return cloud analysis to the local main-session model for the final response. Retain model prompts and user confirmation, and continue after confirmation within the same session.",
+        "developerName": "iFLYTEK",
+        "category": "Productivity",
+        "capabilities": [
+          "Interactive",
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Analyze this material, assess its privacy locally, and confirm redaction before any sensitive cloud handoff.",
+          "Decide whether the local main-session model should handle this task or hand it to a cloud large-model subagent.",
+          "Identify sensitive information in this file locally and generate a redaction preview for confirmation."
+        ],
+        "brandColor": "#0B8F68",
+        "logo": "./assets/lock.svg",
+        "composerIcon": "./assets/lock.svg",
+        "websiteURL": "https://github.com/openai/codex",
+        "privacyPolicyURL": "https://openai.com/policies/privacy-policy/",
+        "termsOfServiceURL": "https://openai.com/policies/terms-of-use/"
+      },
+      "hooks": "./hooks.json"
+    }
+  }
+}

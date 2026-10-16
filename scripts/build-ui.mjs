@@ -1,0 +1,11 @@
+import { build } from 'esbuild';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const packageInfo = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+const result = await build({ define: { __PLUGIN_VERSION__: JSON.stringify(packageInfo.version) }, entryPoints: [path.join(root, 'ui/src/review.js')], bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2022', minify: true, legalComments: 'inline' });
+const template = await fs.readFile(path.join(root, 'ui/review.template.html'), 'utf8');
+const script = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+await fs.writeFile(path.join(root, 'ui/contract-redaction-review.html'), template.replace('/* REVIEW_SCRIPT */', () => script));
+console.log('Built self-contained redaction review UI');

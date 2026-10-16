@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="内容脱敏对照">内容脱敏对照</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; color: #202b36; background: #f7faf9; }
+    * { box-sizing: border-box; }
+    html { margin: 0; padding: 0; }
+    body { margin: 0; }
+    body.expanded, body.review-open { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+    body.expanded #review { position: static; flex: 1 1 0; order: 0; min-height: 0; height: auto; max-height: none; width: 100%; max-width: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+    body.expanded #bottom-bar { position: static; order: 1; flex: 0 0 auto; }
+    body.review-open:not(.expanded) #bottom-bar { position: fixed; inset: auto 0 0; }
+    body.expanded #open-review { display: none; }
+    #bottom-bar { position: relative; z-index: 30; padding: 14px 20px; background: #fff; border-top: 1px solid #e0e9e4; }
+    #bottom-bar .summary { padding: 12px 16px; gap: 12px; }
+    #bottom-bar .count { font-size: 26px; }
+    #bottom-bar .chips { margin-top: 8px; gap: 8px 20px; }
+    #bottom-bar .hint { margin-top: 3px; font-size: 12px; }
+    #review-backdrop { position: fixed; inset: 0 0 var(--footer-height, 180px); z-index: 10; background: #14241b66; }
+    button { font: inherit; font-size: 13px; font-weight: 600; border: 1px solid #dce5e1; border-radius: 9px; padding: 10px 16px; background: #fff; cursor: pointer; }
+    button:hover { filter: brightness(.97); }
+    button:focus-visible, textarea:focus-visible { outline: 3px solid #a2dccc; outline-offset: 3px; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    h1 { margin: 0; font-size: 19px; }
+    .hint { margin: 8px 0 0; font-size: 13px; color: #82908b; line-height: 1.6; }
+    .summary { display: flex; gap: 16px; background: #f0fbf7; border: 1px solid #d7eee5; border-radius: 12px; padding: 20px; }
+    .shield { width: 25px; height: 25px; align-self: flex-start; flex-shrink: 0; color: #2bbb99; margin-top: 6px; }
+    .summary h2 { margin: 0; font-size: 16px; font-weight: 600; }
+    .count { color: #26b793; font-size: 32px; margin-right: 7px; font-variant-numeric: tabular-nums; }
+    .chips { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 16px; font-size: 13px; color: #6f7e77; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; }
+    .check { color: #65cbb3; font-weight: 700; }
+    .chip b { color: #3d5349; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+    .actions .status { flex: 1 1 200px; }
+    .primary { background: #098e69; color: #fff; border-color: #098e69; }
+    .danger { background: #fff0ee; color: #a54941; border-color: #fff0ee; }
+    .secondary { background: #eef4ff; color: #3b639a; border-color: #eef4ff; }
+    .status { font-size: 13px; line-height: 1.6; color: #7a8881; }
+    .status.error { color: #b13d35; }
+    .status.success { color: #098e69; }
+    dialog { position: fixed; z-index: 20; inset: 16px 16px calc(var(--footer-height, 180px) + 16px); margin: auto; border: 1px solid #e0e6e3; border-radius: 16px; padding: 0; width: calc(100vw - 32px); max-width: 1440px; height: calc(100dvh - var(--footer-height, 180px) - 32px); max-height: 1000px; color: inherit; background: #fff; box-shadow: 0 16px 80px #132b2733; }
+    .modal { height: 100%; display: flex; flex-direction: column; }
+    .modal-header { flex-shrink: 0; padding: 20px 24px 16px; display: flex; gap: 16px; justify-content: space-between; }
+    .close { align-self: flex-start; padding: 3px 8px; border: 0; font-size: 24px; color: #88938d; }
+    .compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; padding: 0 24px 24px; flex: 1; min-height: 0; overflow-x: auto; }
+    .panel { min-width: 0; display: flex; flex-direction: column; min-height: 0; border: 1px solid #e1e7e3; border-radius: 10px; overflow: hidden; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fdfaf1; flex-shrink: 0; min-height: 49px; }
+    .sanitized .panel-header { background: #f3faf7; }
+    .panel h2 { margin: 0; font-size: 14px; font-weight: 600; }
+    .local { font-size: 12px; color: #939c94; }
+    .edit { border: 0; padding: 0; color: #18a47e; background: transparent; font-size: 12px; }
+    .document { flex: 1; overflow: auto; min-height: 0; padding: 16px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.95 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+    .document:focus-visible { outline: 2px solid #a2dccc; outline-offset: -2px; }
+    mark { color: inherit; background: #fff0c5; border-radius: 4px; padding: 1px 2px; }
+    .sanitized mark { color: #18a47e; background: #e5f6ee; font-weight: 600; }
+    textarea.document { width: 100%; resize: none; border: 0; background: #fff; outline-offset: -3px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 680px) { #bottom-bar { padding: 10px 12px; } dialog { inset: 8px 8px calc(var(--footer-height, 180px) + 8px); width: calc(100vw - 16px); height: calc(100dvh - var(--footer-height, 180px) - 16px); border-radius: 12px; } .modal-header { padding: 12px 16px; } .compare { padding: 0 16px 16px; gap: 12px; } .panel-header { padding: 10px 12px; } .actions { gap: 7px; } button { font-size: 12px; padding: 8px 10px; } #bottom-bar .chips { gap: 8px 14px; } .chip { flex-shrink: 0; } #bottom-bar .summary > div { min-width: 0; } }
+    @media (max-height: 480px) { #bottom-bar { padding: 8px 12px; } #bottom-bar .summary { padding: 8px 12px; } #bottom-bar .hint { display: none; } #bottom-bar .chips { margin-top: 4px; } .modal-header { padding: 10px 16px; } .modal-header .hint { margin-top: 3px; } .compare { padding-bottom: 12px; } }
+  </style>
+</head>
+<body>
+  <footer id="bottom-bar" aria-label="脱敏汇总与确认" data-i18n-label="脱敏汇总与确认">
+  <section class="summary" aria-label="脱敏统计" data-i18n-label="脱敏统计">
+    <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6z"/><path d="m8 12 3 3 5-6"/></svg>
+    <div><h2><span class="count" data-count>—</span><span data-summary-title data-i18n="等待脱敏扫描">等待脱敏扫描</span></h2><p class="hint" data-i18n="原始内容留在本机，仅交接你确认的脱敏版本。">原始内容留在本机，仅交接你确认的脱敏版本。</p><div class="chips" data-chips data-i18n="正在获取替换统计…">正在获取替换统计…</div></div>
+  </section>
+    <div class="actions"><button id="open-review" class="secondary" disabled data-i18n="查看脱敏对照">查看脱敏对照</button><button id="confirm" class="primary" disabled data-i18n="确认并继续">确认并继续</button><button id="reject" class="danger" disabled data-i18n="拒绝并停止">拒绝并停止</button><button id="repreview" class="secondary" disabled data-i18n="脱敏选中内容">脱敏选中内容</button><button id="continue" class="primary" hidden data-i18n="通知主会话继续">通知主会话继续</button><span id="status" class="status" role="status" aria-live="polite" data-i18n="正在连接预览…">正在连接预览…</span></div>
+  </footer>
+  <div id="review-backdrop" hidden aria-hidden="true"></div>
+  <dialog id="review" aria-labelledby="review-title">
+    <div class="modal">
+      <header class="modal-header"><div><h1 id="review-title" data-i18n="内容脱敏对照">内容脱敏对照</h1><p class="hint" data-i18n="左侧原文保留在本机，右侧为本次需要你确认的内容。">左侧原文保留在本机，右侧为本次需要你确认的内容。</p></div><button id="close-review" class="close" aria-label="关闭脱敏对照" data-i18n-label="关闭脱敏对照">×</button></header>
+      <section class="compare" aria-label="脱敏前后双栏对照" data-i18n-label="脱敏前后双栏对照">
+        <article class="panel original"><div class="panel-header"><h2 data-i18n="原始内容">原始内容</h2><span class="local" data-i18n="🔒 保留在本机">🔒 保留在本机</span></div><pre id="original" class="document" data-i18n="正在读取本机原文…">正在读取本机原文…</pre></article>
+        <article class="panel sanitized"><div class="panel-header"><h2 data-i18n="待上传的脱敏版本">待上传的脱敏版本</h2><button id="edit" class="edit" disabled data-i18n="选择脱敏内容">选择脱敏内容</button></div><pre id="sanitized-preview" class="document" data-i18n="正在获取脱敏版本…">正在获取脱敏版本…</pre><textarea id="sanitized" class="document" aria-label="编辑脱敏版本" data-i18n-label="编辑脱敏版本" spellcheck="false" readonly hidden></textarea></article>
+      </section>
+    </div>
+  </dialog>
+  <script>/* REVIEW_SCRIPT */</script>
+</body>
+</html>

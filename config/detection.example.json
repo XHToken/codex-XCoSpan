@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "rule_timeout_ms": 2000,
+  "categories": {
+    "secret": "mask",
+    "government_id": "mask",
+    "bank_card": "mask",
+    "organization": "contextual",
+    "amount": "contextual",
+    "date": "contextual"
+  },
+  "dictionary": [],
+  "rules": [],
+  "local_model": { "enabled": false }
+}
