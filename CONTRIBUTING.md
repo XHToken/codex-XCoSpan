@@ -28,7 +28,7 @@ npm test
 
 Browser tests use installed Google Chrome. Install it with `npx playwright install chrome` if needed, or set `PLAYWRIGHT_CHROME` to a compatible browser executable. CI installs Chrome explicitly.
 
-Edit UI sources, then commit the rebuilt `ui/contract-redaction-review.html` with them. It is a generated runtime asset, not the place to edit the interface. CI rebuilds it and rejects a mismatch with the committed file. `smoke:mcp` starts the service from another working directory and verifies its advertised tools and UI resource; it does not install the plugin.
+Edit UI sources, then commit the rebuilt `ui/contract-redaction-review.html` with them. CI rebuilds it and rejects a mismatch with the committed file. `smoke:mcp` starts the service from another working directory and verifies its advertised tools and UI resource.
 
 ## Documentation ownership
 
@@ -39,7 +39,7 @@ Edit UI sources, then commit the rebuilt `ui/contract-redaction-review.html` wit
 
 ## Build a package locally
 
-Run these development commands from a source checkout: clone the repository or extract **Source code (zip)**. The installation ZIP does not contain the build toolchain; users import that ZIP directly through plugin management in Codex desktop.
+Clone the repository or extract **Source code (zip)**, then run these commands from its root:
 
 ```sh
 npm ci
@@ -47,9 +47,9 @@ npm run package
 npm run check:package
 ```
 
-`package` runs `build:ui` and `check:manifests`, then creates `dist/codex-local-privacy-router-<version>.zip` and the matching `.zip.sha256` checksum. `check:package` extracts the actual ZIP and checks that its runtime works without installing npm dependencies. It does not install the plugin into Codex.
+`package` runs `build:ui` and `check:manifests`, then creates `dist/codex-local-privacy-router-<version>.zip` and the matching `.zip.sha256` checksum. `check:package` extracts the ZIP and verifies that its runtime works without installing npm dependencies.
 
-The resulting ZIP is ready for direct import in Codex desktop, which requires Node.js 20+ to run the local service but does not require the Codex CLI. The archive has no enclosing directory: `plugin.json`, `install.mjs`, `.codex-plugin/`, and the other runtime files are directly at its root. For the CLI alternative, extract it into a dedicated directory and run `node install.mjs` using a Codex CLI with plugin commands. The build commands above create local files only; they do not publish a GitHub Release.
+The ZIP contains the built UI and runtime files at its root. See the [installation guide](docs/installation.md) for installation and update steps.
 
 ## Publish a release
 

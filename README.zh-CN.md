@@ -10,23 +10,67 @@
 
 ## 使用前准备
 
-- 使用 Codex 桌面端直接导入插件 ZIP。
-- 本机安装 Node.js 20+，供桌面端运行插件的本地服务。桌面端导入 ZIP 不需要 Codex CLI。
+- 本机安装 Node.js 20+，供插件运行本地服务。
+- 使用 Codex 桌面端；通过命令行安装时，还需支持 `plugin` 命令的 Codex CLI。
 - **提交私密材料前，先在宿主中配置本地部署的主会话模型。** 安装本插件不会部署模型、切换当前模型，也不会把已有的云端聊天变成本地聊天。
 
 ## 安装
 
 **[下载插件 ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [所有版本](https://github.com/XHToken/codex-XCoSpan/releases)
 
-**安装只需要 ZIP 文件**，`.zip.sha256` 校验文件可选，用于核对下载完整性。GitHub 自动提供的 **Source code (zip)** 是源码归档。仓库保持私有期间，需登录有仓库访问权限的账号下载。需要自行生成安装包时，见[贡献指南](CONTRIBUTING.md#build-a-package-locally)。
+选择一种方式即可：
 
-**推荐在 Codex 桌面端直接导入 ZIP：**
+| 方式 | 适用场景 | 操作 |
+| --- | --- | --- |
+| Git 插件市场（推荐） | 由 Codex 自动获取和安装 | 添加仓库市场，执行插件安装命令 |
+| 桌面端导入 ZIP | 通过桌面端安装发布版本 | 下载 ZIP，在插件管理中导入 |
+| 命令行安装 ZIP | 习惯使用终端，或客户端没有 ZIP 导入入口 | 解压 ZIP，运行 `node install.mjs` |
+| 从源码安装 | 修改插件或使用仓库中的版本 | 克隆仓库，运行安装脚本 |
 
-1. 打开桌面端的插件管理入口，选择下载的插件 ZIP 并导入。
-2. 核对安装后的名称 **Edge-Cloud Collaboration** 和版本，启用插件，按提示审阅并信任 Hooks。
-3. 打开新聊天使用。
+### 方式一：Git 插件市场
 
-ZIP 已包含构建好的界面和运行文件，桌面端导入无需解压、`npm install` 或 Python。把 ZIP 上传到普通聊天不会安装插件。命令行备用方式是解压到独立目录后运行 `node install.mjs`；只有这条路径需要支持插件命令的 Codex CLI。校验、更新与 CLI 备用方式见[安装指南](docs/installation.md)。
+准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin add codex-local-privacy-router@codex-xcospan
+```
+
+Codex 会自动获取仓库并安装插件，无需手动下载 ZIP 或克隆源码。安装后在客户端启用 **Edge-Cloud Collaboration**，按提示审阅并信任 Hooks，打开新聊天。
+
+### 方式二：桌面端导入 ZIP
+
+1. 下载上方的 `codex-local-privacy-router-0.1.0.zip`。
+2. 打开 Codex 桌面端的插件管理页面，通过 ZIP 导入入口选择该文件。ZIP 已包含构建好的界面和运行文件，无需解压。
+3. 安装后启用 **Edge-Cloud Collaboration**，按提示审阅并信任 Hooks，然后打开新聊天。
+
+### 方式三：命令行安装 ZIP
+
+先确认 Codex CLI 支持插件命令：
+
+```sh
+codex plugin --help
+```
+
+将插件 ZIP 完整解压到独立目录，保留 `.codex-plugin/` 等隐藏文件。在包含 `install.mjs` 的目录打开终端，运行：
+
+```sh
+node install.mjs
+```
+
+脚本会复制插件、注册本地市场并完成安装。随后在客户端启用插件、信任 Hooks，打开新聊天。
+
+### 方式四：从源码安装
+
+准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
+
+```sh
+git clone https://github.com/XHToken/codex-XCoSpan.git
+cd codex-XCoSpan
+node install.mjs
+```
+
+仓库已包含构建好的界面。安装后在客户端启用插件、信任 Hooks，打开新聊天。修改并重新构建界面或生成可分发的 ZIP，见[贡献指南](CONTRIBUTING.md)；安装验证、更新和排障见[安装指南](docs/installation.md)。
 
 ## 怎么使用
 

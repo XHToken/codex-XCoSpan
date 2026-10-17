@@ -67,4 +67,4 @@ flowchart TD
 
 两套清单共享名称、版本与说明，但结构和路径表达不同，不应简单合并。修改发布元数据时同步清单并执行项目校验。
 
-仓库名为 `codex-XCoSpan`，安装标识保持 `codex-local-privacy-router`。保留 `mcp/server.mjs`、Hook 入口及 `ui://codex-local-privacy-router/contract-redaction-review.html` 资源 URI；其中历史命名不代表插件只处理合同。`ui/contract-redaction-review.html` 是预构建产物，修改界面后必须重新构建。
+仓库名为 `codex-XCoSpan`，安装标识保持 `codex-local-privacy-router`。保留 `mcp/server.mjs`、Hook 入口及 `ui://codex-local-privacy-router/contract-redaction-review.html` 资源 URI。修改界面源码后，按[贡献指南](../CONTRIBUTING.md)重新构建运行时 HTML。

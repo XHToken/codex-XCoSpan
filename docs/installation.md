@@ -4,8 +4,8 @@
 
 ## 安装前准备
 
-- 使用 **Codex 桌面端**，通过插件管理入口直接导入 ZIP；这条路径不需要 Codex CLI。
-- 本机安装 **Node.js 20+**，供插件运行本地服务，且桌面端进程能从 PATH 找到 `node`。
+- 本机安装 **Node.js 20+**，供插件运行本地服务，且客户端进程能从 PATH 找到 `node`。
+- 桌面端导入使用 **Codex 桌面端**；命令行安装还需支持 `plugin` 命令的 **Codex CLI**。
 - **主会话模型已在本地部署**。插件会请你确认部署位置，但不会下载、部署或切换模型。云端模型是否可用、能否创建子代理由宿主决定。
 
 可在终端检查 Node.js 版本：
@@ -14,38 +14,62 @@
 node --version
 ```
 
-## 获取插件 ZIP
+## 选择安装方式
 
-在 [Releases](https://github.com/XHToken/codex-XCoSpan/releases) 下载插件安装包，或直接[下载 v0.1.0 ZIP](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)。**安装只需要 ZIP 文件，SHA-256 校验文件可选。** 仓库保持私有期间，需登录有仓库访问权限的账号下载。
+| 方式 | 需要准备 | 安装入口 |
+| --- | --- | --- |
+| Git 插件市场（推荐） | Git、Codex CLI | 添加仓库市场后安装 |
+| 桌面端导入 ZIP | Codex 桌面端、插件 ZIP | 插件管理页面的 ZIP 导入入口 |
+| 命令行安装 ZIP | Codex CLI、解压后的插件 ZIP | `node install.mjs` |
+| 从源码安装 | Git、Codex CLI | 克隆仓库，运行安装脚本 |
 
-安装包命名为 `codex-local-privacy-router-<version>.zip`，其中 `<version>` 是实际版本号。GitHub 自动生成的 **Source code (zip)** 用于获取源码。开发者也可以按[贡献指南](../CONTRIBUTING.md#build-a-package-locally)在本地生成安装包。
+四种方式选一种即可。ZIP 安装包从 [Releases](https://github.com/XHToken/codex-XCoSpan/releases) 获取，也可直接[下载 v0.1.0 ZIP](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)。选择 `codex-local-privacy-router-<version>.zip`；GitHub 的 **Source code (zip)** 对应源码安装。
 
 <details>
 <summary>可选：校验下载完整性</summary>
 
-如果希望核对 ZIP 是否与发布时一致，可以额外下载同一版本的 `codex-local-privacy-router-<version>.zip.sha256`。它不是安装依赖，也不需要导入 Codex。
+下载同一版本的 `codex-local-privacy-router-<version>.zip.sha256`。
 
 用系统的 SHA-256 工具计算 ZIP 摘要，并与校验文件中的值比较：Windows 使用 PowerShell 的 `Get-FileHash -Algorithm SHA256`，macOS 使用 `shasum -a 256`，Linux 使用 `sha256sum`，命令后接 ZIP 路径。
 
 </details>
 
-## 在 Codex 桌面端安装（推荐）
+## 方式一：Git 插件市场
+
+准备 Git 和支持插件命令的 Codex CLI，在任意目录的终端中运行：
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin add codex-local-privacy-router@codex-xcospan
+```
+
+第一条命令注册仓库市场，第二条命令安装插件。Codex 自动获取仓库中的插件文件，用户无需手动下载 ZIP、克隆源码或运行安装脚本。
+
+安装后核对状态：
+
+```sh
+codex plugin list --marketplace codex-xcospan --json
+```
+
+列表中应包含插件 `codex-local-privacy-router`，且 `installed`、`enabled` 为 `true`。在客户端启用技能、MCP 服务和 Hooks，按提示信任 Hooks，然后打开新聊天。
+
+## 方式二：桌面端导入 ZIP
 
 1. 打开 Codex 桌面端的插件管理入口，选择下载的 `codex-local-privacy-router-<version>.zip` 并导入，无需解压。
-2. 在插件管理中核对名称 **Edge-Cloud Collaboration** 和版本。安装标识是 `codex-local-privacy-router`，与仓库名 `codex-XCoSpan` 不同。
-3. 确认插件及其技能、MCP 服务和 Hooks 已启用，按提示审阅并信任 Hooks，然后**打开新聊天**。
+2. 在插件管理中找到 **Edge-Cloud Collaboration**，核对版本并启用。
+3. 确认技能、MCP 服务和 Hooks 已启用，按提示审阅并信任 Hooks，然后**打开新聊天**。
 
-ZIP 已包含构建后的界面和运行文件，不需要 `npm install`、UI 构建、Python 或 Codex CLI。仅把 ZIP 上传到普通聊天不会安装插件。
+ZIP 已包含构建后的界面和运行文件，可直接导入。
 
-## 命令行安装（备用）
+## 方式三：命令行安装 ZIP
 
-这条路径需要支持 `plugin` 命令的 Codex CLI，可用于 Windows、macOS 和 Linux。先检查：
+适用于 Windows、macOS 和 Linux。先确认 Codex CLI 支持插件命令：
 
 ```sh
 codex plugin --help
 ```
 
-Windows 通过 npm 安装 Codex 时，若 PowerShell 的执行策略阻止了 `codex.ps1`，可用 `codex.cmd plugin --help` 检查。安装脚本会直接调用原生 `codex.exe` 或 npm 的 Node.js 入口，无需修改执行策略，也不需要 Git Bash 或 WSL。
+Windows 通过 npm 安装 Codex 时，若 PowerShell 阻止了 `codex.ps1`，可改用 `codex.cmd plugin --help`。安装脚本会直接调用原生 `codex.exe` 或 npm 的 Node.js 入口。
 
 将 ZIP 解压到**新建的独立目录**。压缩包没有外层文件夹，根目录直接包含 `plugin.json`、`install.mjs`、`.codex-plugin/` 等入口。保留隐藏文件和目录，不要只复制可见文件。
 
@@ -55,32 +79,65 @@ Windows 通过 npm 安装 Codex 时，若 PowerShell 的执行策略阻止了 `c
 node install.mjs
 ```
 
-如果已获取项目源码，也可以在仓库根目录运行同一安装命令；修改界面源码后需先重新构建。
+安装完成后，按下方“验证安装”检查结果。
 
-脚本把项目复制到 Codex 用户目录下的 `local-plugin-sources/codex-local-privacy-router/`，创建名为 `edge-cloud-collaboration-local` 的专用本地市场并安装插件。Codex 用户目录默认是用户主目录下的 `.codex`；设置 `CODEX_HOME` 时使用其指定位置。脚本不修改其他市场。
+## 方式四：从源码安装
 
-使用脚本安装后，通过这个专用市场检查：
+准备 Git 和支持插件命令的 Codex CLI，在终端运行：
+
+```sh
+git clone https://github.com/XHToken/codex-XCoSpan.git
+cd codex-XCoSpan
+node install.mjs
+```
+
+仓库已包含构建好的界面，可以直接安装。若下载的是 **Source code (zip)**，解压后进入项目根目录，运行 `node install.mjs`。
+
+如果修改了界面源码，先执行 `npm ci` 和 `npm run build:ui`，再运行安装脚本。开发检查与 ZIP 打包见[贡献指南](../CONTRIBUTING.md)。
+
+## 验证安装
+
+桌面端导入后，在插件管理页面检查名称 **Edge-Cloud Collaboration** 和版本。
+
+方式三、四的安装脚本会把插件复制到 Codex 用户目录下的 `local-plugin-sources/codex-local-privacy-router/`，并通过 `edge-cloud-collaboration-local` 本地市场安装。Codex 用户目录默认为 `~/.codex`，也可由 `CODEX_HOME` 指定。用以下命令检查：
 
 ```sh
 codex plugin list --marketplace edge-cloud-collaboration-local --json
 ```
 
-列表中应包含插件 ID `codex-local-privacy-router`。在客户端中启用插件及其组件、审阅并信任 Hooks，再打开新聊天。上述专用市场由安装脚本创建，桌面端直接导入后在插件管理中检查即可。
+列表中应包含插件 `codex-local-privacy-router`，且 `installed`、`enabled` 为 `true`。在客户端检查技能、MCP 服务和 Hooks，按提示信任 Hooks，再打开新聊天。
 
 ## 更新
 
-下载新版本的 ZIP，在 **Codex 桌面端的插件管理入口导入新版 ZIP**，然后核对插件版本。
+按原安装方式更新：
 
-使用 CLI 备用路径安装的用户，将新 ZIP 解压到新的独立目录，重新运行 `node install.mjs`，完成插件刷新，并用上述专用市场的列表命令核对版本。不要直接修改安装缓存。
+**Git 插件市场**：刷新仓库并重新安装最新内容。
 
-更新后打开新聊天；若列表仍显示旧版本，重启客户端并再次检查。旧聊天中的服务和已有预览不会自动变成新版。企业词表和模型配置应保存在插件目录外，配置方法见[检测配置](./configuration.md)。
+```sh
+codex plugin marketplace upgrade codex-xcospan
+codex plugin add codex-local-privacy-router@codex-xcospan
+```
+
+其他方式：
+
+- **桌面端导入**：下载新版本 ZIP，通过插件管理入口导入，核对版本。
+- **命令行安装 ZIP**：将新版 ZIP 解压到新的独立目录，运行 `node install.mjs`。
+- **源码 ZIP 安装**：下载新版源码 ZIP，解压到新的独立目录，运行 `node install.mjs`。
+- **Git 克隆安装**：在没有未提交修改的源码目录中运行以下命令；有本地修改时先提交或备份。
+
+```sh
+git pull --ff-only
+node install.mjs
+```
+
+更新后按“验证安装”核对结果并打开新聊天；若仍显示旧版本，重启客户端后检查。企业词表和模型配置保存在插件目录外，见[检测配置](./configuration.md)。
 
 ## 常见安装问题
 
 | 现象 | 处理 |
 | --- | --- |
 | 终端或客户端找不到 Node.js | 确认版本至少为 20；修正 PATH 后重启终端和客户端。终端可用不代表已启动的客户端继承了新 PATH。 |
-| CLI 备用路径中 `codex plugin --help` 不可用 | 确认 CLI 已安装且支持插件命令。Windows 可先用 `codex.cmd plugin --help` 排除 PowerShell 入口问题；桌面端直接导入无需此命令。 |
+| `codex plugin --help` 不可用 | 安装或更新支持插件命令的 Codex CLI；也可选择桌面端导入 ZIP。 |
 | CLI 安装时 Windows 提示 npm 入口缺失 | 修复 Codex 的 npm 安装，或把可用的原生 `codex.exe` 放入 PATH。 |
 | 列表有插件，但新聊天没有效果 | 检查插件及其技能、MCP、Hooks 是否启用，Hooks 是否已获信任；重启客户端后打开新聊天。 |
 | 能安装，但无法选择云模型或打开对照面板 | 核对宿主的子代理和 MCP Apps 支持，按[使用指南](./usage.md#遇到问题时)处理。 |

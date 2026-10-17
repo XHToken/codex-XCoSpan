@@ -10,23 +10,67 @@ The plugin appears as **Edge-Cloud Collaboration**. Its installation ID is `code
 
 ## Before you start
 
-- Use the Codex desktop app for direct ZIP installation.
-- Install Node.js 20+ so the app can run the plugin's local service. Desktop ZIP installation does not require the Codex CLI.
+- Install Node.js 20+ to run the plugin's local service.
+- Use the Codex desktop app. Command-line installation also requires a Codex CLI with `plugin` commands.
 - Configure a locally deployed main-session model **before submitting private material**. Installing this plugin does not install a model, change where your chat runs, or make an existing cloud chat local.
 
 ## Install
 
 **[Download plugin ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [All releases](https://github.com/XHToken/codex-XCoSpan/releases)
 
-**Only the ZIP is needed to install.** The `.zip.sha256` file is optional, for checking download integrity. GitHub's automatic **Source code (zip)** is the source archive. While the repository is private, sign in with an account that has repository access to download releases. To build a package locally, see [Contributing](CONTRIBUTING.md#build-a-package-locally).
+Choose one installation method:
 
-**Recommended: import the ZIP directly in Codex desktop.**
+| Method | Best for | Steps |
+| --- | --- | --- |
+| Git marketplace (recommended) | Letting Codex fetch and install the plugin | Add the repository marketplace and install the plugin |
+| Desktop ZIP import | Installing a released version through the desktop app | Download the ZIP and import it through plugin management |
+| Command-line ZIP installation | Terminal users or clients without a ZIP import option | Extract the ZIP and run `node install.mjs` |
+| Install from source | Modifying the plugin or using the repository version | Clone the repository and run the installer |
 
-1. Open plugin management in the desktop app and select the downloaded plugin ZIP for import.
-2. Check the installed name **Edge-Cloud Collaboration** and its version, enable the plugin, and review and trust its Hooks as required.
-3. Start a new chat to use it.
+### Option 1: Git marketplace
 
-The ZIP includes the built UI and runtime files; no extraction, `npm install`, or Python is needed for desktop import. Uploading the ZIP into an ordinary chat does not install it. For a command-line alternative, extract the ZIP into a dedicated directory and run `node install.mjs`; only this route requires a Codex CLI with plugin commands. See the [installation guide](docs/installation.md) (中文) for checksums, updates, and the CLI alternative.
+With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin add codex-local-privacy-router@codex-xcospan
+```
+
+Codex fetches the repository and installs the plugin automatically. No manual ZIP download or source checkout is needed. Enable **Edge-Cloud Collaboration** in your client, review and trust its Hooks when prompted, and start a new chat.
+
+### Option 2: Desktop ZIP import
+
+1. Download `codex-local-privacy-router-0.1.0.zip` using the link above.
+2. Open plugin management in Codex desktop and select the file through its ZIP import option. The ZIP includes the built UI and runtime files; leave it compressed.
+3. Enable **Edge-Cloud Collaboration**, review and trust its Hooks when prompted, then start a new chat.
+
+### Option 3: Command-line ZIP installation
+
+Check that your Codex CLI supports plugin commands:
+
+```sh
+codex plugin --help
+```
+
+Extract the complete plugin ZIP into a dedicated directory, keeping hidden entries such as `.codex-plugin/`. Open a terminal in the directory containing `install.mjs` and run:
+
+```sh
+node install.mjs
+```
+
+The script copies the plugin, registers a local marketplace, and installs it. Enable the plugin in your client, trust its Hooks, and start a new chat.
+
+### Option 4: Install from source
+
+With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
+
+```sh
+git clone https://github.com/XHToken/codex-XCoSpan.git
+cd codex-XCoSpan
+node install.mjs
+```
+
+The repository includes the built UI. Enable the plugin in your client, trust its Hooks, and start a new chat. To modify and rebuild the UI or create a distributable ZIP, see [Contributing](CONTRIBUTING.md). For verification, updates, and troubleshooting, see the [installation guide](docs/installation.md) (中文).
 
 ## Use it
 
