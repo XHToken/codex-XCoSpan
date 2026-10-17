@@ -1,4 +1,4 @@
-// Public interface strings only. Never translate document text or protocol IDs here.
+// Public interface strings shared by the MCP server and UI. Never translate document text or protocol IDs here.
 export const englishMessages = {
   "当前版本未记录替换；仍需核对内容": "No replacements recorded; review the content",
   "替换数量不代表不存在敏感信息，请核对全文。": "The replacement count is not proof that content is non-sensitive. Review the full text.",

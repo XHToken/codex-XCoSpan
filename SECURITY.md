@@ -1,5 +1,7 @@
 # Security Policy
 
+For normal data handling and limitations, see the [privacy boundary](docs/privacy.md). This page covers vulnerability reports.
+
 ## Supported versions
 
 Security fixes are expected for the latest `0.1.x` release. Older versions may not receive fixes.

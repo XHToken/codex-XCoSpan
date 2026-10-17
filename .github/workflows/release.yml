@@ -1,0 +1,42 @@
+name: Plugin release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci.yml
+
+  draft-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified plugin package
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist
+      - name: Create or update release draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if release_state="$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [ "$release_state" != "true" ]; then
+              echo "Release $RELEASE_TAG is already published; refusing to replace its assets." >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" dist/*.zip dist/*.zip.sha256 --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/*.zip dist/*.zip.sha256 \
+              --verify-tag --draft --title "codex-XCoSpan $RELEASE_TAG" --generate-notes
+          fi

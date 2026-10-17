@@ -4,7 +4,7 @@
  * Local, dependency-free MCP server for edge-cloud collaboration and redaction.
  * stdout is reserved for JSON-RPC; diagnostics go to stderr.
  */
-import { englishMessages, responseLanguage } from "../ui/src/messages.mjs";
+import { englishMessages, responseLanguage } from "../shared/messages.mjs";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,8 +16,9 @@ import { boundary } from "./detection-core.mjs";
 import { analysisSubagentInstructions } from "./subagent-policy.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageInfo = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 const SERVER_NAME = "codex-local-privacy-router";
-const VERSION = "0.1.0";
+const VERSION = packageInfo.version;
 const UI_URI = "ui://codex-local-privacy-router/contract-redaction-review.html";
 const MAX_CONTENT_CHARS = 200_000;
 const REVIEW_TTL_MS = 30 * 60 * 1000;

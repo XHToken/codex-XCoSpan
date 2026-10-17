@@ -3,7 +3,11 @@
   "version": "0.1.0",
   "description": "Assess every user prompt in a locally deployed main session, preserve workflow state across follow-ups, and require redaction confirmation before sensitive cloud analysis.",
   "scripts": {
+    "check:manifests": "node scripts/check-manifests.mjs",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
     "build:ui": "node scripts/build-ui.mjs",
+    "package": "npm run build:ui && npm run check:manifests && node scripts/package-plugin.mjs",
+    "check:package": "node scripts/check-package.mjs",
     "test": "node --test"
   },
   "keywords": [],
@@ -13,6 +17,7 @@
   "devDependencies": {
     "@modelcontextprotocol/ext-apps": "^2.0.3",
     "esbuild": "^0.28.2",
+    "fflate": "0.8.3",
     "playwright": "^1.64.0"
   }
 }

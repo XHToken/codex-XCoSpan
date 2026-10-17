@@ -100,4 +100,4 @@ Read user-supplied/private files and convert them to text in the main session be
 
 ## Reference
 
-- See `references/routing-policy.md` for semantic assessment, token lifecycle, and threat boundaries.
+- See [routing-policy.md](references/routing-policy.md) for semantic assessment, token lifecycle, and threat boundaries.

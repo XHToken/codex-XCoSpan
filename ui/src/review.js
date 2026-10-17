@@ -1,4 +1,4 @@
-import { translate } from './messages.mjs';
+import { translate } from '../../shared/messages.mjs';
 import { App } from '@modelcontextprotocol/ext-apps';
 
 const $ = (selector) => document.querySelector(selector);

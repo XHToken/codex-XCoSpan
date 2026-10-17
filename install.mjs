@@ -41,7 +41,7 @@ export function prepareMarketplace(source, codexDirectory) {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.cpSync(source, destination, {
       recursive: true,
-      filter: (entry) => !['node_modules', '.git', '.DS_Store'].includes(path.basename(entry)),
+      filter: (entry) => !['node_modules', '.git', '.DS_Store', 'dist'].includes(path.basename(entry)),
     });
   }
   const catalog = path.join(marketplace, '.agents', 'plugins', 'marketplace.json');

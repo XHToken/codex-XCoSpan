@@ -4,8 +4,9 @@
 
 ## Validation
 
-- [ ] `node ./mcp/server.mjs --self-check`
+- [ ] `npm run check:manifests`
 - [ ] `npm run build:ui`
+- [ ] `npm run smoke:mcp`
 - [ ] `npm test`
 
 ## Privacy and compatibility review

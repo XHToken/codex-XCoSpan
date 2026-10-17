@@ -34,7 +34,7 @@ For direct non-sensitive work, send `execution_role=non_sensitive_analysis_subag
 
 For sensitive work, `handoff_to_subagent` validates the confirmed review, token, sanitized-version hash and matching model selection. Its outer fields stay in the main session; send only its four-field `subagent_payload`: `execution_role`, `subagent_instructions`, `task`, `sanitized_content`. The token is consumed once. `handed_off` means a package was generated, not that a subagent started or finished. The main session still creates the subagent, obtains results, checks findings and provides the final response. Returned analysis cannot authorize access to originals or another handoff.
 
-## Canonical revisions and consistent validation (0.1.18)
+## Canonical revisions and consistent validation
 
 The server generates canonical text and registered placeholders from the original plus structured selections. Create, revise, confirm and handoff use the same rule checks. Registered tokens are masked before residual scans, including within flattened table fields; separators delimit field values. Unknown newly invented markers are rejected with local position/category diagnostics. Native bracketed content is retained and cannot collide with generated tokens. Diagnostics never include original sensitive values.
 
@@ -46,8 +46,8 @@ Multi-block spans require explicit `scope=passage` and a reason. The server repo
 
 Statistics count the actual registered replacement records for the canonical version. A count of zero means no replacements are recorded, not that no sensitive information exists. The UI highlights registered masks only and presents that distinction explicitly. Existing free-rewritten previews must be reconstructed from the original under the new workflow; a count alone cannot repair their lost meaning.
 
-## Node detection engine (0.1.0)
+## Node detection engine
 
-Rules and enterprise dictionary run in a worker with a bounded timeout. The optional explicitly configured local model uses overlapping UTF-16 chunks and strict response validation; missing findings, invalid offsets, unknown types, transport errors and timeouts block the operation. Disabled optional model means the main session provides semantic judgment, not that semantic judgment is skipped. No Python runtime is required. Configuration is local JSON referenced by `PRIVACY_ROUTER_CONFIG`; see `DETECTION-ZH.md` at the plugin root.
+Rules and enterprise dictionary run in a worker with a bounded timeout. The optional explicitly configured local model uses overlapping UTF-16 chunks and strict response validation; missing findings, invalid offsets, unknown types, transport errors and timeouts block the operation. Disabled optional model means the main session provides semantic judgment, not that semantic judgment is skipped. Configuration is local JSON referenced by `PRIVACY_ROUTER_CONFIG`; see the [configuration guide](../../../docs/configuration.md).
 
 A preview binds the successful detection result and policy hash to its immutable original. Structured edits retain required masks. Changing configuration invalidates the review; recreate it before confirmation. Handoff scans the task instruction too, and rechecks consent/version after asynchronous detection so revocation or concurrent edits win. The `route_request` direct-cloud path also checks required protection before accepting a low-sensitivity declaration. Contextual candidate matches alone still do not establish sensitivity. Tools only govern this plugin workflow; they cannot intercept unrelated host tools.

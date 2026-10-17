@@ -85,6 +85,8 @@ test('installer creates a portable dedicated marketplace without touching other 
     fs.writeFileSync(path.join(source, '.mcp.json'), '{}');
     fs.mkdirSync(path.join(source, 'node_modules'));
     fs.writeFileSync(path.join(source, 'node_modules', 'excluded'), 'not runtime');
+    fs.mkdirSync(path.join(source, 'dist'));
+    fs.writeFileSync(path.join(source, 'dist', 'plugin.zip'), 'release output is not an installed dependency');
     const codexDirectory = path.join(temporary, 'Codex 用户目录');
     const other = path.join(codexDirectory, 'other-marketplace.json');
     fs.mkdirSync(codexDirectory);
@@ -97,6 +99,7 @@ test('installer creates a portable dedicated marketplace without touching other 
     assert.ok(!catalog.plugins[0].source.path.includes('\\'));
     assert.ok(fs.existsSync(path.join(target, '.mcp.json')));
     assert.ok(!fs.existsSync(path.join(target, 'node_modules')));
+    assert.ok(!fs.existsSync(path.join(target, 'dist')));
     assert.equal(fs.readFileSync(other, 'utf8'), 'unchanged');
     // Re-running from the installed source must not copy it into itself.
     assert.deepEqual(prepareMarketplace(target, codexDirectory), { marketplace, selector });
