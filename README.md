@@ -70,7 +70,7 @@ cd codex-XCoSpan
 node install.mjs
 ```
 
-The repository includes the built UI. Enable the plugin in your client, trust its Hooks, and start a new chat. To modify and rebuild the UI or create a distributable ZIP, see [Contributing](CONTRIBUTING.md). For verification, updates, and troubleshooting, see the [installation guide](docs/installation.md) (中文).
+The repository includes the built UI. Enable the plugin in your client, trust its Hooks, and start a new chat. To modify and rebuild the UI or create a distributable ZIP, see [Contributing](CONTRIBUTING.md). For verification, updates, and troubleshooting, see the [installation guide](docs/installation.md).
 
 ## Use it
 
@@ -88,19 +88,19 @@ On first use, confirm where the main-session model runs. When several eligible c
 
 For a redaction review, select **Compare redaction**, check the full text, and mask anything missed. Choose **Confirm and continue** to authorize that version, or **Reject and stop** to stop the handoff. Confirmation saves your decision; the main session then dispatches the analysis and returns the result. Changed content needs another review. To keep a task local, say: “Handle this task locally; do not use cloud analysis.”
 
-The [usage guide](docs/usage.md) (中文) walks through examples, corrections, confirmation, and recovery when a preview expires or the UI cannot resume the chat.
+The [usage guide](docs/usage.md) walks through examples, corrections, confirmation, and recovery when a preview expires or the UI cannot resume the chat.
 
 ## Privacy boundary
 
-The default detector runs offline. An optional configured detection service receives original text chunks. Cloud analysis through the sensitive workflow receives the confirmed redacted material and checked task instructions. The plugin does not control unrelated host tools or the host's own storage, and redaction can miss sensitive meaning. Read the [data flow and limitations](docs/privacy.md) (中文).
+The default detector runs offline. An optional configured detection service receives original text chunks. Cloud analysis through the sensitive workflow receives the confirmed redacted material and checked task instructions. The plugin does not control unrelated host tools or the host's own storage, and redaction can miss sensitive meaning. Read the [data flow and limitations](docs/privacy.md).
 
 ## Documentation and development
 
 | Document | Purpose |
 | --- | --- |
-| [Installation](docs/installation.md) · [Usage](docs/usage.md) | Setup and everyday operation (中文) |
-| [Configuration](docs/configuration.md) | Optional dictionary, rules, and detection service (中文) |
-| [Architecture](docs/architecture.md) | Modules, workflow, and compatibility entry points (中文) |
+| [Installation](docs/installation.md) · [Usage](docs/usage.md) | Setup and everyday operation |
+| [Configuration](docs/configuration.md) | Optional dictionary, rules, and detection service |
+| [Architecture](docs/architecture.md) | Modules, workflow, and compatibility entry points |
 | [Contributing](CONTRIBUTING.md) | Build, test, and release checks |
 | [Routing reference](skills/privacy-routing/references/routing-policy.md) | Agent-facing protocol and authorization rules |
 | [Security](SECURITY.md) · [Changelog](CHANGELOG.md) | Vulnerability reporting and release history |

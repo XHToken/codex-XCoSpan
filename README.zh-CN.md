@@ -70,7 +70,7 @@ cd codex-XCoSpan
 node install.mjs
 ```
 
-仓库已包含构建好的界面。安装后在客户端启用插件、信任 Hooks，打开新聊天。修改并重新构建界面或生成可分发的 ZIP，见[贡献指南](CONTRIBUTING.md)；安装验证、更新和排障见[安装指南](docs/installation.md)。
+仓库已包含构建好的界面。安装后在客户端启用插件、信任 Hooks，打开新聊天。修改并重新构建界面或生成可分发的 ZIP，见[贡献指南](CONTRIBUTING.md)；安装验证、更新和排障见[安装指南](docs/zh-CN/installation.md)。
 
 ## 怎么使用
 
@@ -90,20 +90,20 @@ node install.mjs
 
 如果只希望本地处理，直接说：“**这次只在本地完成，不要使用云端分析。**”
 
-完整示例、误遮蔽修正、预览过期和确认后未继续的处理方式见[使用指南](docs/usage.md)。
+完整示例、误遮蔽修正、预览过期和确认后未继续的处理方式见[使用指南](docs/zh-CN/usage.md)。
 
 ## 隐私边界
 
-默认规则检测离线运行；可选的独立检测服务会接收原文分块。敏感工作流只向云端分析交接已确认的脱敏材料和检查后的任务说明。插件不能控制宿主的其他工具或记录方式，脱敏也可能漏掉敏感语义。详见[数据流与隐私边界](docs/privacy.md)。
+默认规则检测离线运行；可选的独立检测服务会接收原文分块。敏感工作流只向云端分析交接已确认的脱敏材料和检查后的任务说明。插件不能控制宿主的其他工具或记录方式，脱敏也可能漏掉敏感语义。详见[数据流与隐私边界](docs/zh-CN/privacy.md)。
 
 ## 文档导航
 
 | 文档 | 内容 |
 | --- | --- |
-| [安装指南](docs/installation.md) | 环境、安装、验证、更新与排障 |
-| [使用指南](docs/usage.md) | 提交任务、查看对照、修正、确认与继续 |
-| [检测配置](docs/configuration.md) | 可选企业词表、自定义规则与检测服务 |
-| [架构说明](docs/architecture.md) | 模块职责、工作流与兼容入口 |
+| [安装指南](docs/zh-CN/installation.md) | 环境、安装、验证、更新与排障 |
+| [使用指南](docs/zh-CN/usage.md) | 提交任务、查看对照、修正、确认与继续 |
+| [检测配置](docs/zh-CN/configuration.md) | 可选企业词表、自定义规则与检测服务 |
+| [架构说明](docs/zh-CN/architecture.md) | 模块职责、工作流与兼容入口 |
 | [贡献指南](CONTRIBUTING.md) | 开发、测试和发布检查 |
 | [路由参考](skills/privacy-routing/references/routing-policy.md) | 面向代理的协议与授权规则 |
 | [安全报告](SECURITY.md) · [更新记录](CHANGELOG.md) | 漏洞报告与版本历史 |

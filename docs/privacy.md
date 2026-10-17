@@ -1,36 +1,38 @@
-# 隐私与数据流
+# Privacy and data flow
 
-本插件帮助主会话先判断任务敏感性，再决定本地处理、直接交给云端分析，或先脱敏并等待确认。它约束的是自己的工作流，不是独立的隔离沙箱，也不能全局拦截 Codex 的其他工具。
+[Home](../README.md) · [简体中文](zh-CN/privacy.md)
 
-## 哪些内容会被谁看到
+This plugin helps the main session assess task sensitivity before choosing local processing, direct cloud analysis, or redaction followed by user confirmation. It governs its own workflow. It is not an independent isolation sandbox and cannot intercept all other Codex tools.
 
-| 环节 | 接触的内容与去向 |
+## Who can see which content
+
+| Stage | Content accessed and destination |
 | --- | --- |
-| Codex 主会话 | 接收你的请求，并读取任务需要的原文。模型运行位置取决于宿主配置；插件会请求确认，但不能验证模型是否真的在本地。 |
-| 默认检测 | Node.js 进程在本机运行规则和企业词表，不调用模型端点；语义判断仍由主会话完成。 |
-| 可选独立检测服务 | 仅在显式启用后，向配置的端点发送原文分块。该服务能看到这些内容，是否本地部署及如何留存数据由部署方决定。 |
-| 脱敏对照界面 | 通过宿主提供的 UI 元数据接收原文和替换映射，用于你核对两侧内容。 |
-| 敏感任务的云端子代理 | 接收已确认的脱敏正文、经过检查的任务说明及固定角色指令，不接收原文映射或主会话历史。 |
-| 非敏感复杂任务的云端子代理 | 接收任务目标和最少必要的非敏感上下文，无需脱敏确认；可以自行检索和分析公开资料。 |
+| Codex main session | Receives your request and reads the original material needed for the task. The model's location depends on the host configuration. The plugin asks for confirmation but cannot verify that the model actually runs locally. |
+| Default detection | A local Node.js process runs rules and enterprise dictionaries without calling model endpoints. The main session still performs semantic assessment. |
+| Optional separate detection service | Sends chunks of the original text to the configured endpoint only when explicitly enabled. That service can see the content; its operator determines deployment location and data retention. |
+| Redaction comparison UI | Receives the original text and replacement mapping through host-provided UI metadata so you can compare both sides. |
+| Cloud subagent for sensitive tasks | Receives the confirmed redacted text, checked task instructions, and fixed role instructions. It does not receive the original-text mapping or main-session history. |
+| Cloud subagent for complex, non-sensitive tasks | Receives the task objective and the minimum necessary non-sensitive context without requiring redaction confirmation. It can search and analyze public sources independently. |
 
-**请在提供敏感材料前确认主会话的实际部署位置。** 安装插件不会把已经使用云端模型的聊天自动变成本地聊天；插件也无法撤回此前已经发给宿主或模型服务的内容。
+**Confirm where the main session actually runs before providing sensitive material.** Installing the plugin does not automatically turn a chat using a cloud model into a local chat. The plugin also cannot retract content already sent to the host or model service.
 
-可选检测端点默认关闭，未内置或自动选择公共模型服务。回环地址可直接配置；非回环地址要求 HTTPS 和显式信任的来源，但这些校验不能证明远端服务器位于内网。配置和鉴权方式见[检测配置](configuration.md)。
+The optional detection endpoint is disabled by default. No public model service is built in or selected automatically. Loopback addresses can be configured directly; non-loopback addresses require HTTPS and an explicitly trusted origin. These checks cannot prove that a remote server is on a private network. See [detection configuration](configuration.md) for setup and authentication.
 
-## 存储与记录
+## Storage and logging
 
-MCP 服务在进程内保存预览原文、脱敏正文、替换映射和授权状态，不主动把原文或映射写入磁盘或错误日志。预览 30 分钟后失效，退出服务会丢失进程内状态。确认界面不把原文写入浏览器存储、持久化组件状态或续接消息。
+The MCP server holds preview source text, redacted text, replacement mappings, and authorization state in process memory. It does not actively write original text or mappings to disk or error logs. Previews expire after 30 minutes, and stopping the service loses the in-memory state. The confirmation UI does not write original text to browser storage, persisted component state, or continuation messages.
 
-这些是插件自身的实现边界。主会话此前已接收或读取原文，宿主仍可能记录聊天、工具参数及 UI 数据；文件读取工具、日志系统、系统备份和模型服务的数据处理也不由本插件控制。云端服务对收到的脱敏内容如何保存，取决于你选择的服务与设置。
+These are boundaries of the plugin's own implementation. The main session has already received or read the original text, and the host may still record chats, tool arguments, and UI data. The plugin does not control data handling by file-reading tools, logging systems, system backups, or model services. How cloud services retain the redacted content they receive depends on the service and settings you choose.
 
-因此，“原文不进入云端交接包”只适用于本插件受控的交接路径，不能解释为整个聊天环境中的原文绝不会外发。
+The statement that original text is excluded from the cloud handoff package therefore applies only to this plugin's controlled handoff path. It does not mean that original text can never leave the broader chat environment.
 
-## 你确认的是什么
+## What you confirm
 
-“确认并继续”授权当前脱敏版本，实际交接和分析仍由主会话后续执行；修改内容后须重新确认。拒绝或撤销会停止当前授权，但无法收回已经外发的数据。操作步骤及过期处理见[使用指南](usage.md)。
+“Confirm and continue” authorizes the current redacted version. The main session performs the actual handoff and analysis afterward; content changes require confirmation again. Rejecting or revoking stops the current authorization but cannot recall data already sent. See the [usage guide](usage.md) for operating steps and expiry handling.
 
-## 判断能力的边界
+## Assessment limits
 
-规则和模型都可能漏报或误报。密钥、证件号码、有效卡号等默认强制保护；金额、日期、公司名等则需要结合公开来源、任务目的和保密语义判断。替换数量为零或规则校验通过，都不能证明内容没有敏感信息。
+Rules and models can both miss sensitive content or flag harmless content. Secrets, identity document numbers, valid payment card numbers, and similar data receive mandatory protection by default. Amounts, dates, company names, and similar content require assessment based on public sources, task purpose, and confidentiality in context. A replacement count of zero or a successful rule check does not prove that content contains no sensitive information.
 
-脱敏也可能移除完成任务所需的事实。确认时同时检查是否仍有敏感语义，以及剩余内容是否足以支持分析。必要信息无法安全保留时，可以明确要求只在本地处理。漏洞和隐私缺陷请按[安全报告说明](../SECURITY.md)反馈，示例中使用合成数据。
+Redaction may also remove facts needed to complete the task. When confirming, check both whether sensitive meaning remains and whether the remaining content is sufficient for analysis. If essential information cannot be retained safely, you can explicitly request local processing only. Report vulnerabilities and privacy defects using the [security reporting instructions](../SECURITY.md), with synthetic data in examples.

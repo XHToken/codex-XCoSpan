@@ -1,67 +1,67 @@
-# 使用指南
+# Usage guide
 
-[返回项目首页](../README.zh-CN.md) · [安装与更新](./installation.md)
+[Project home](../README.md) · [简体中文](zh-CN/usage.md)
 
-## 开始一次任务
+## Start a task
 
-安装后，确认插件及其技能、MCP 服务和 Hooks 已启用，按宿主提示信任 Hooks，并打开新聊天。首次使用可以提及 **Edge-Cloud Collaboration**，然后用普通自然语言描述任务；后续消息不必反复提及插件名。
+After installation, enable the plugin, its skills, MCP service, and Hooks. Trust the Hooks when the host prompts you, then open a new chat. You can mention **Edge-Cloud Collaboration** in your first request and describe the task in ordinary language. You do not need to repeat the plugin name in later messages.
 
-首次任务会请你确认**当前主会话模型是否在本地部署**。这确认的是材料处理位置，不是脱敏授权，也不是选择云模型。只有确实在本地部署时才确认；若不是，先在宿主中切换到可用的本地模型。插件本身不部署或切换模型。同一会话会复用有效的确认，模型变更或撤回确认时需要重新确认。
+On the first task, the plugin asks you to confirm **whether the current main chat model is deployed locally**. This confirms where your material is processed; it does not authorize redaction handoff or select a cloud model. Confirm only if the model is actually deployed locally. Otherwise, first switch to an available local model in the host. The plugin does not deploy or switch models. A valid confirmation is reused within the same chat; changing the model or withdrawing confirmation requires a new confirmation.
 
-## 不同任务会怎样处理
+## How different tasks are handled
 
-主会话根据任务难度、材料的实际敏感性和来源决定处理方式：
+The main chat chooses a workflow based on task difficulty, the material's actual sensitivity, and its source:
 
-| 任务 | 示例请求 | 预期流程 |
+| Task | Example request | Expected workflow |
 | --- | --- | --- |
-| 简单任务 | “把这三项待办整理成清单：准备议程、预订会议室、发送邀请。” | 主会话在本地完成。 |
-| 复杂且不敏感的任务 | “根据公开文档比较三款开源数据库的备份与恢复方案，附来源和适用条件。” | 选择云端大模型，由子代理检索、分析公开资料，主会话整理结果。无需脱敏确认。 |
-| 复杂且敏感的任务 | “这份内部方案还未公开。请比较两种实施路线的风险；涉及云端分析时，先让我确认脱敏版本。” | 主会话先读取和评估材料，生成脱敏预览；你确认后才交接脱敏内容。 |
+| Simple task | “Turn these three tasks into a checklist: prepare the agenda, book a meeting room, and send invitations.” | The main chat completes the task locally. |
+| Complex, non-sensitive task | “Compare backup and recovery options for three open-source databases using public documentation. Include sources and suitable use cases.” | Select a large cloud model. A subagent researches and analyzes public information, and the main chat presents the result. No redaction confirmation is needed. |
+| Complex, sensitive task | “This internal proposal has not been published. Compare the risks of two implementation approaches. Let me confirm a redacted version before any cloud analysis.” | The main chat reads and assesses the material, then creates a redaction preview. It hands off the redacted content only after your confirmation. |
 
-任务涉及的用户文件由本地主会话先读取和评估，上传与存储方式仍由宿主决定。“来自本地文件”不等于“敏感”，复杂度也不由字数决定。默认检测无需额外配置；需要企业词表或独立检测模型时，见[检测配置](./configuration.md)。
+The local main chat reads and assesses user files needed for the task before handoff. Upload and storage behavior still depends on the host. A local file is not necessarily sensitive, and word count does not determine complexity. Default detection needs no extra configuration; see [Detection configuration](./configuration.md) for enterprise dictionaries or an independent detection model.
 
-需要云端分析时，如果宿主提供多个合适的云端大模型，主会话会列出候选并请你选择；只有一个时会告知后使用。选择只针对当前任务，和“确认脱敏内容”是两件事。
+When cloud analysis is needed, the main chat lists eligible large cloud models and asks you to choose if several are available. If only one is available, it tells you which model it will use. The selection applies to the current task and is separate from confirming the redacted content.
 
-## 检查和修改脱敏预览
+## Review and edit a redaction preview
 
-敏感任务生成预览后，主会话会等待你检查并确认。
+For sensitive tasks, the main chat waits for you to review and confirm the preview.
 
-1. 点击 **“查看脱敏对照”**。左侧是原文，右侧是待确认的脱敏版本；宿主也可能在侧栏中直接显示双栏对照。
-2. 检查遗漏和误遮蔽，同时确认剩余内容仍足够完成任务。替换数量为零不代表没有敏感信息。
-3. 需要追加遮蔽时，点击 **“选择脱敏内容”**，在右侧选中文字，再点击 **“脱敏选中内容”**。相同内容会同步替换。界面支持选中遮蔽，不支持直接改写、删除正文或手写替换标记。
-4. 如果遮蔽过多，回到主会话指出要修正的位置和理由，例如：“第二段的公开报价不需要遮蔽，请重新评估这部分，保留其他遮蔽。”主会话会修正预览。强制保护的密钥、身份号码等不能直接取消遮蔽。
-5. 满意后点击 **“确认并继续”**；不希望交接则点击 **“拒绝并停止”**。拒绝会停止此次交接，不会自动改成本地完成任务。
+1. Click **“Compare redaction.”** The original text is on the left and the redacted version awaiting confirmation is on the right. The host may also display this comparison directly in a side panel.
+2. Check for missed sensitive information and unnecessary redactions. Make sure the remaining content is sufficient for the task. Zero replacements does not prove that the content is free of sensitive information.
+3. To redact more text, click **“Select text to redact,”** select text on the right, then click **“Redact selected text.”** Identical values are replaced consistently. The interface supports selection redaction, but not rewriting or deleting the body text or manually entering replacement markers.
+4. If too much text is redacted, return to the main chat and explain what should change and why. For example: “The public price in the second paragraph does not need redaction. Reassess that passage and keep the other redactions.” The main chat will revise the preview. Mandatory protection for secrets, identity numbers, and similar values cannot be removed directly.
+5. Click **“Confirm and continue”** when satisfied, or **“Reject and stop”** to decline the handoff. Rejection stops the handoff; it does not automatically complete the task locally.
 
-关闭对照窗口只是收起界面，不代表确认或拒绝。
+Closing the comparison window only hides the interface. It neither confirms nor rejects the preview.
 
-## 确认之后
+## After confirmation
 
-点击“确认并继续”会保存这版内容的授权，并通知主会话继续。主会话核对状态、完成尚未完成的云模型选择，再创建子代理并等待分析结果。最终由主会话向你回复；按钮显示“已确认”不代表已经上传或分析完成。
+**“Confirm and continue”** saves authorization for that version and notifies the main chat to proceed. The main chat checks the state, completes any pending cloud model selection, then creates a subagent and waits for its analysis. The main chat provides the final response. A **“Confirmed”** button does not mean that upload or analysis has finished.
 
-如果提示“确认已保存，但未能通知主会话”，可以点击 **“通知主会话继续”** 重试，或在原聊天中输入：
+If you see **“Confirmation saved, but the main chat could not be notified,”** click **“Notify the main chat”** to retry, or enter this in the original chat:
 
-> 继续已确认的脱敏任务。
+> Continue the confirmed redaction task.
 
-若同一聊天存在多个预览，请说明对应的任务或材料；如果聊天中的续接消息带有预览编号，也可以引用该编号。
+If the chat contains several previews, identify the task or material. You can also refer to the review ID if it appears in a continuation message.
 
-预览和云模型选择均有效 **30 分钟**。需要修改已确认的内容时，请回主会话提出修正请求，检查新版并重新确认。预览过期或 MCP 服务重启后，需要重新生成预览。
+Previews and cloud model selections are valid for **30 minutes**. To change confirmed content, ask the main chat to revise it, then review and confirm the new version. Generate a new preview if the old one expires or the MCP service restarts.
 
-## 只在本地处理
+## Keep a task local
 
-在任务开始时明确说明即可：
+State your preference at the start of the task:
 
-> 这次任务只在本地处理，不创建云端子代理。
+> Process this task locally only. Do not create a cloud subagent.
 
-明确的本地处理要求优先于默认分流。若已经拒绝交接，再补充“请改为仅在本地完成这次任务”；拒绝按钮本身只停止交接。
+An explicit request for local processing takes precedence over default routing. If you have already rejected a handoff, add: “Please complete this task locally instead.” The rejection button itself only stops the handoff.
 
-## 遇到问题时
+## Troubleshooting
 
-| 现象 | 处理 |
+| Symptom | Action |
 | --- | --- |
-| 没有可用云模型，或宿主不能创建指定模型的子代理 | 云端分析会停止。可在宿主中配置可用能力，或明确要求仅在本地处理。插件不会下载模型，也不会自动换成较弱模型继续。 |
-| 对照面板无法连接或宿主不支持交互按钮 | 请主会话展示脱敏版本和替换统计，在聊天中审阅并明确确认或拒绝。必须先看到准备交接的版本。 |
-| 已确认却没有结果 | 查看是否仍在等待云模型选择或继续通知；用上面的继续请求让主会话读取现有状态。 |
-| 预览过期、服务重启或找不到原预览 | 请主会话重新生成预览并再次确认，不能把旧确认直接用于新版本。 |
-| 检测失败或提示配置错误 | 先修复[检测配置](./configuration.md)或相关服务，再重试；也可明确要求本地处理。 |
+| No cloud model is available, or the host cannot create a subagent with the selected model | Cloud analysis stops. Configure the required host capabilities or explicitly request local processing. The plugin does not download models or automatically switch to a less capable model. |
+| The comparison panel cannot connect, or the host does not support interactive buttons | Ask the main chat to display the redacted version and replacement statistics. Review them in the chat and explicitly confirm or reject. You must see the version intended for handoff before confirming it. |
+| You confirmed the preview but received no result | Check whether cloud model selection or a continuation notification is still pending. Use the continuation request above so the main chat reads the existing state. |
+| The preview expired, the service restarted, or the original preview cannot be found | Ask the main chat to generate a new preview and confirm it again. The old confirmation cannot authorize a new version. |
+| Detection fails or reports a configuration error | Fix the [detection configuration](./configuration.md) or related service, then retry. You can also explicitly request local processing. |
 
-了解原文、检测端点和云端交接的边界，请阅读[隐私与限制](./privacy.md)。
+See [Privacy and data flow](./privacy.md) for the boundaries around source material, detection endpoints, and cloud handoff.

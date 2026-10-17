@@ -1,70 +1,72 @@
-# 架构与维护入口
+# Architecture and maintenance
 
-插件由代理指令、Hooks、Node.js MCP 服务和确认界面组成。主会话负责理解任务和调用宿主的子代理工具；MCP 服务负责检测、脱敏状态与交接校验，不自行启动云端模型。
+[Home](../README.md) · [简体中文](zh-CN/architecture.md)
 
-使用步骤见[使用指南](usage.md)，部署边界见[隐私与数据流](privacy.md)。工具字段、偏移规则和调用约束统一以[路由协议参考](../skills/privacy-routing/references/routing-policy.md)为准。
+The plugin consists of agent instructions, Hooks, a Node.js MCP server, and a confirmation UI. The main session interprets the task and calls the host's subagent tools. The MCP server handles detection, redaction state, and handoff validation; it does not launch cloud models itself.
 
-## 模块职责
+See the [usage guide](usage.md) for operating steps and [privacy and data flow](privacy.md) for deployment boundaries. The [routing protocol reference](../skills/privacy-routing/references/routing-policy.md) is the implementation reference for tool fields, offset rules, and call constraints.
 
-| 路径 | 职责 |
+## Module responsibilities
+
+| Path | Responsibility |
 | --- | --- |
-| `skills/privacy-routing/SKILL.md` | 主会话执行流程，以及模型选择、人工确认和结果回收约束。 |
-| `skills/privacy-routing/references/routing-policy.md` | 路由、脱敏修订、授权和交接协议。 |
-| `hooks/`、`hooks.json` | 会话启动指引、每次提交的本地候选扫描和宿主角色识别；不读取附件或调用模型。 |
-| `mcp/server.mjs` | stdio MCP 入口、工具定义、预览状态、脱敏修订、授权校验与 UI 资源。 |
-| `mcp/routing.mjs` | 路由判断和格式候选匹配；接收主会话给出的语义评估。 |
-| `mcp/detection*.mjs` | 检测配置、规则和企业词表工作线程，以及可选模型检测服务。 |
-| `mcp/subagent-policy.mjs` | 两种云端交接共用的子代理角色指令。 |
-| `shared/messages.mjs` | MCP 与 UI 共用的语言识别和界面文案。 |
-| `ui/src/`、`ui/review.template.html` | 确认界面源码；构建为运行时读取的 `ui/contract-redaction-review.html`。 |
-| `config/` | 合成检测配置示例；实际企业配置放在插件目录之外。 |
-| `scripts/`、`tests/` | 构建、校验及自动化测试；开发流程见[贡献指南](../CONTRIBUTING.md)。 |
-| `install.mjs` | 创建本地插件市场并调用 Codex 安装命令。 |
+| `skills/privacy-routing/SKILL.md` | Main-session workflow and constraints on model selection, user confirmation, and result collection. |
+| `skills/privacy-routing/references/routing-policy.md` | Protocols for routing, redaction revisions, authorization, and handoff. |
+| `hooks/`, `hooks.json` | Session-start guidance, local candidate scanning on each submission, and host role detection; no attachment reads or model calls. |
+| `mcp/server.mjs` | stdio MCP entry point, tool definitions, preview state, redaction revisions, authorization checks, and UI resources. |
+| `mcp/routing.mjs` | Routing decisions and format-based candidate matching; receives semantic assessments from the main session. |
+| `mcp/detection*.mjs` | Detection configuration, a worker thread for rules and enterprise dictionaries, and an optional model detection service. |
+| `mcp/subagent-policy.mjs` | Subagent role instructions shared by both cloud handoff paths. |
+| `shared/messages.mjs` | Language detection and UI text shared by MCP and the UI. |
+| `ui/src/`, `ui/review.template.html` | Confirmation UI source; built into `ui/contract-redaction-review.html`, which is loaded at runtime. |
+| `config/` | Synthetic detection configuration examples; actual enterprise configuration belongs outside the plugin directory. |
+| `scripts/`, `tests/` | Builds, validation, and automated tests; see the [contributing guide](../CONTRIBUTING.md) for the development workflow. |
+| `install.mjs` | Creates a local plugin marketplace and invokes the Codex installation command. |
 
-## 数据与控制流
+## Data and control flow
 
 ```mermaid
 flowchart TD
-    U[用户提交任务] --> H[Hook 本地候选扫描]
-    H --> M["主会话理解任务和来源<br/>本地读取实际涉及的未读材料"]
-    M --> R{复杂度与敏感性评估}
-    R -->|简单任务| L[主会话完成]
-    R -->|复杂、非敏感| N["选择云端模型<br/>准备最少非敏感上下文"]
-    R -->|复杂、敏感| D[检测与语义脱敏]
-    D --> V[显示原文与脱敏对照]
-    V -->|用户修改| D
-    V -->|用户确认| A["选择云端模型<br/>校验授权并生成脱敏交接包"]
-    V -->|拒绝或撤销| S[停止本次交接]
-    N --> C["主会话调用宿主工具<br/>创建不继承历史的分析子代理"]
+    U[User submits a task] --> H[Hook scans for local candidates]
+    H --> M["Main session interprets the task and sources<br/>Reads relevant unread material locally"]
+    M --> R{Assess complexity and sensitivity}
+    R -->|Simple task| L[Main session completes the task]
+    R -->|Complex and non-sensitive| N["Select a cloud model<br/>Prepare minimal non-sensitive context"]
+    R -->|Complex and sensitive| D[Detection and semantic redaction]
+    D --> V[Show original and redacted text side by side]
+    V -->|User edits| D
+    V -->|User confirms| A["Select a cloud model<br/>Validate authorization and create a redacted handoff package"]
+    V -->|Reject or revoke| S[Stop this handoff]
+    N --> C["Main session calls host tools<br/>Creates an analysis subagent without inherited history"]
     A --> C
-    C --> F[子代理返回证据和不确定性]
-    F --> E[主会话检查并答复]
+    C --> F[Subagent returns evidence and uncertainties]
+    F --> E[Main session reviews and responds]
 ```
 
-公开资料研究可直接把研究目标交给子代理检索；需要先读取的是本次任务涉及的用户材料或私有、来源不明的内容。用户明确选择本地处理时，遵循该选择。
+For research using public sources, the main session can give the research objective directly to a subagent to search. Material that must be read first includes user-provided material relevant to the task, private content, and content of unknown origin. Respect an explicit user choice to process the task locally.
 
-默认检测只运行本地规则和词表，语义判断来自主会话。启用独立检测端点后，检测模块会向该端点发送原文分块；配置要求见[检测配置](configuration.md)。
+Default detection runs only local rules and dictionaries; semantic judgments come from the main session. When a separate detection endpoint is enabled, the detection module sends chunks of the original text to that endpoint. See [detection configuration](configuration.md) for the requirements.
 
-## 状态与授权约束
+## State and authorization constraints
 
-预览的正常路径是 `awaiting_confirmation → confirmed → handed_off`，也可以进入 `rejected` 或 `revoked`。维护时保留以下不变量：
+The normal preview path is `awaiting_confirmation → confirmed → handed_off`; it can also enter `rejected` or `revoked`. Preserve these invariants during maintenance:
 
-- 预览和模型选择仅保存在 MCP 进程内，均有效 30 分钟，重启后不恢复。
-- 授权绑定当前脱敏内容和检测策略。实际修改清除确认与 token；未变操作保留授权；策略改变必须重新生成预览。
-- 确认产生一次性 token。交接校验版本、模型选择及异步检测后的授权状态，再消费 token。`handed_off` 只表示包已生成，创建子代理和等待结果仍由主会话执行。
-- 云端模型选择与脱敏确认独立；多个候选需用户选择，没有合适模型则停止云端分析。模型能力和部署信息来自宿主及用户确认，插件不能独立验证。
+- Previews and model selections are held only in the MCP process. Both expire after 30 minutes and are not restored after a restart.
+- Authorization is bound to the current redacted content and detection policy. Actual edits clear confirmation and the token; operations that leave content unchanged preserve authorization. Policy changes require a new preview.
+- Confirmation creates a single-use token. Handoff checks the revision, model selection, and authorization state after asynchronous detection, then consumes the token. `handed_off` means only that the package has been generated; the main session still creates the subagent and waits for its result.
+- Cloud model selection is independent of redaction confirmation. Multiple candidates require a user choice; if no suitable model is available, cloud analysis stops. Model capabilities and deployment information come from the host and user confirmation; the plugin cannot verify them independently.
 
-规则检测与工具校验不能证明语义脱敏完整性，宿主执行仍依赖主会话遵守指令。调用参数、子代理角色与转发边界见[路由协议参考](../skills/privacy-routing/references/routing-policy.md)。
+Rule detection and tool validation cannot prove that semantic redaction is complete. Host execution still depends on the main session following its instructions. See the [routing protocol implementation reference](../skills/privacy-routing/references/routing-policy.md) for call parameters, subagent roles, and forwarding boundaries.
 
-## 清单与稳定入口
+## Manifests and stable entry points
 
-| 文件 | 用途 |
+| File | Purpose |
 | --- | --- |
-| `.codex-plugin/plugin.json`、`.mcp.json` | Codex 插件清单及其 MCP 配置；使用插件目录内的相对入口。 |
-| `plugin.json`、`mcp.json` | 兼容清单；保留标准 schema、扩展结构及 `${PLUGIN_ROOT}` 路径表达。 |
-| `hooks.json` | 两套清单共享的 Hook 声明，直接执行 Node.js 入口。 |
-| `package.json` | 名称、版本等公共元数据来源；MCP 服务和 UI 构建从中读取版本。 |
+| `.codex-plugin/plugin.json`, `.mcp.json` | Codex plugin manifest and MCP configuration; use relative entry points within the plugin directory. |
+| `plugin.json`, `mcp.json` | Compatibility manifests; preserve the standard schemas, extension structure, and `${PLUGIN_ROOT}` path notation. |
+| `hooks.json` | Hook declarations shared by both manifest formats, executing Node.js entry points directly. |
+| `package.json` | Source of shared metadata such as name and version; the MCP server and UI build read the version from this file. |
 
-两套清单共享名称、版本与说明，但结构和路径表达不同，不应简单合并。修改发布元数据时同步清单并执行项目校验。
+Both manifest formats share the name, version, and description, but differ in structure and path notation. Do not simply merge them. Synchronize the manifests and run project validation when changing release metadata.
 
-仓库名为 `codex-XCoSpan`，安装标识保持 `codex-local-privacy-router`。保留 `mcp/server.mjs`、Hook 入口及 `ui://codex-local-privacy-router/contract-redaction-review.html` 资源 URI。修改界面源码后，按[贡献指南](../CONTRIBUTING.md)重新构建运行时 HTML。
+The repository is named `codex-XCoSpan`; the installation identifier remains `codex-local-privacy-router`. Preserve `mcp/server.mjs`, the Hook entry points, and the `ui://codex-local-privacy-router/contract-redaction-review.html` resource URI. After changing the UI source, rebuild the runtime HTML as described in the [contributing guide](../CONTRIBUTING.md).
