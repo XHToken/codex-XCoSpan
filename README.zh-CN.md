@@ -16,7 +16,9 @@
 
 ## 安装
 
-版本发布后，在本仓库的 **Releases** 页下载 `codex-local-privacy-router-<version>.zip`。**安装只需要 ZIP 文件**，`.zip.sha256` 校验文件可选，用于核对下载完整性。GitHub 自动提供的 **Source code (zip)** 是源码归档。需要自行生成安装包时，见[贡献指南](CONTRIBUTING.md#build-a-package-locally)。
+**[下载插件 ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [所有版本](https://github.com/XHToken/codex-XCoSpan/releases)
+
+**安装只需要 ZIP 文件**，`.zip.sha256` 校验文件可选，用于核对下载完整性。GitHub 自动提供的 **Source code (zip)** 是源码归档。仓库保持私有期间，需登录有仓库访问权限的账号下载。需要自行生成安装包时，见[贡献指南](CONTRIBUTING.md#build-a-package-locally)。
 
 **推荐在 Codex 桌面端直接导入 ZIP：**
 

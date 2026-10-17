@@ -16,7 +16,9 @@ The plugin appears as **Edge-Cloud Collaboration**. Its installation ID is `code
 
 ## Install
 
-For published versions, download `codex-local-privacy-router-<version>.zip` from this repository's **Releases** page. **Only the ZIP is needed to install.** The `.zip.sha256` file is optional, for checking download integrity. GitHub's automatic **Source code (zip)** is the source archive. To build a package locally, see [Contributing](CONTRIBUTING.md#build-a-package-locally).
+**[Download plugin ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [All releases](https://github.com/XHToken/codex-XCoSpan/releases)
+
+**Only the ZIP is needed to install.** The `.zip.sha256` file is optional, for checking download integrity. GitHub's automatic **Source code (zip)** is the source archive. While the repository is private, sign in with an account that has repository access to download releases. To build a package locally, see [Contributing](CONTRIBUTING.md#build-a-package-locally).
 
 **Recommended: import the ZIP directly in Codex desktop.**
 
