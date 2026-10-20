@@ -1,0 +1,11 @@
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => input += chunk);
+process.stdin.on('end', () => {
+  const payload = JSON.parse(input);
+  if (payload.task === 'timeout-test') return setTimeout(() => {}, 20000);
+  if (payload.task === 'failure-test') { process.stderr.write('SENSITIVE_DIAGNOSTIC'); process.exitCode = 1; return; }
+  if (payload.task === 'empty-test') return;
+  if (payload.task === 'overflow-test') { process.stdout.write('x'.repeat(3 * 1024 * 1024)); return; }
+  process.stdout.write(JSON.stringify(payload));
+});

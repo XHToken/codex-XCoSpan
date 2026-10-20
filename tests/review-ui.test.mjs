@@ -1,3 +1,4 @@
+import { cloudFixture } from './helpers/cloud-fixture.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -11,10 +12,11 @@ const html = await fs.readFile(path.join(root, 'ui/contract-redaction-review.htm
 // Synthetic fixture: no user attachments or private contracts enter this harness.
 const original = '设备采购合同（演示数据）\n甲方：示例采购有限公司\n乙方：示例设备有限公司\n合同金额：人民币 1,850,000.00 元\n开户行：中国测试银行示例支行\n账号：6222 0202 0202 0202 020\n统一社会信用代码：91110000DEMO00000X\n地址：示例市演示路100号\n电话：0551-12345678\n邮箱：demo@example.com\n\n第一条 付款与交付\n待设备稳定运行30日，且收到乙方按甲方要求开具的发票后支付剩余款项。\n\n第二条 质保与违约\n设备质保期为12个月；发生故障时，应在24小时内响应。\n'.repeat(3);
 function session() {
-  const child = spawn(process.execPath, [path.join(root, 'mcp/server.mjs')], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const fixture = cloudFixture();
+  const child = spawn(process.execPath, [path.join(root, 'mcp/server.mjs')], { env: fixture.env, stdio: ['pipe', 'pipe', 'pipe'] });
   let id = 0, buffer = ''; const pending = new Map();
   child.stdout.on('data', (chunk) => { buffer += chunk; let end; while ((end = buffer.indexOf('\n')) >= 0) { const item = JSON.parse(buffer.slice(0, end)); buffer = buffer.slice(end + 1); pending.get(item.id)?.(item.result); pending.delete(item.id); } });
-  return { call(name, args) { if (name === 'create_redaction_review') args = { response_language: 'zh-CN', ...args }; const next = ++id; return new Promise((resolve) => { pending.set(next, resolve); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method: 'tools/call', params: { name, arguments: args } }) + '\n'); }); }, close() { child.kill(); } };
+  return { call(name, args) { if (name === 'create_redaction_review') args = { response_language: 'zh-CN', ...args }; const next = ++id; return new Promise((resolve) => { pending.set(next, resolve); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method: 'tools/call', params: { name, arguments: args } }) + '\n'); }); }, close() { child.kill(); child.once('exit', () => fixture.close()); } };
 }
 const launch = () => chromium.launch(process.env.PLAYWRIGHT_CHROME ? { executablePath: process.env.PLAYWRIGHT_CHROME } : { channel: 'chrome' });
 async function setupOpenAI(page, rpc, initial = {}) {
@@ -72,26 +74,20 @@ test('late widget metadata shows a highlighted modal; click persists consent and
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('已通知主会话'));
     assert.equal(observed.calls.filter((item) => item.name === 'confirm_redaction').length, 1);
     assert.equal(observed.messages.length, 1);
-    assert.equal(observed.messages[0].prompt, '已确认脱敏内容，请交给子代理继续分析。');
+    assert.equal(observed.messages[0].prompt, '已确认脱敏内容，请使用云端模型继续分析。');
     assert.deepEqual(observed.widgetStates, [{ modelContent: { review_id: result.structuredContent.review_id, action: 'continue_confirmed_redaction' }, privateContent: null }]);
     assert.ok(!observed.messages[0].prompt.includes(result.structuredContent.review_id));
-    assert.doesNotMatch(observed.messages[0].prompt, /sha256|preview_redaction|handoff_to_subagent|audience|token/);
+    assert.doesNotMatch(observed.messages[0].prompt, /sha256|preview_redaction|run_cloud_analysis|audience|token/);
     assert.doesNotMatch(observed.messages[0].prompt, /示例采购有限公司|6222 0202|demo@example.com/);
     const recovered = await rpc.call('preview_redaction', { review_id: result.structuredContent.review_id, audience: 'main' });
     assert.equal(recovered.structuredContent.status, 'confirmed');
-    // Redaction consent does not imply a cloud model choice.
-    const available = ['gpt-5.6-luna', 'gpt-6.1-sol', 'gpt-6-astra'];
-    const large_model_ids = ['gpt-6.1-sol', 'gpt-6-astra'];
-    const pendingModel = await rpc.call('select_subagent_model', { available_models: available, large_model_ids });
-    assert.equal(pendingModel.structuredContent.selection_required, true);
-    const selected = await rpc.call('select_subagent_model', { available_models: available, large_model_ids, selected_model: 'gpt-6-astra', user_confirmed_selection: true });
-    const handoff = await rpc.call('handoff_to_subagent', { review_id: recovered.structuredContent.review_id, handoff_token: recovered.structuredContent.handoff_token, expected_sanitized_sha256: recovered.structuredContent.sanitized_sha256, audience: 'subagent', model: 'gpt-6-astra', model_selection_id: selected.structuredContent.model_selection_id });
-    assert.equal(handoff.structuredContent.status, 'handed_off');
-    assert.match(handoff.structuredContent.next_step, /does not prove a subagent started or finished/);
-    assert.deepEqual(handoff.structuredContent.spawn_parameters, { model: 'gpt-6-astra', fork_turns: 'none' });
-    assert.deepEqual(Object.keys(handoff.structuredContent).sort(), ['next_step', 'ok', 'review_id', 'spawn_parameters', 'status', 'subagent_payload']);
-    assert.equal(handoff.structuredContent.subagent_payload.sanitized_content, recovered.structuredContent.sanitized_content);
-    assert.deepEqual(Object.keys(handoff.structuredContent.subagent_payload).sort(), ['execution_role', 'sanitized_content', 'subagent_instructions', 'task']);
+    const selected = await rpc.call('select_cloud_model', {});
+    const handoff = await rpc.call('run_cloud_analysis', { review_id: recovered.structuredContent.review_id, handoff_token: recovered.structuredContent.handoff_token, expected_sanitized_sha256: recovered.structuredContent.sanitized_sha256, audience: 'main', model: 'gpt-6-astra', model_selection_id: selected.structuredContent.model_selection_id });
+    assert.equal(handoff.structuredContent.status, 'running');
+    assert.match(handoff.structuredContent.next_step, /get_cloud_result/);
+    assert.equal(handoff.structuredContent.model, 'test-large');
+    assert.ok(handoff.structuredContent.job_id);
+    assert.equal(handoff.structuredContent.subagent_payload, undefined);
     await page.locator('#close-review').click();
     assert.equal(await page.locator('#review').isVisible(), false);
     if (process.env.REVIEW_SCREENSHOT_DIR) await page.locator('#bottom-bar').screenshot({ path: path.join(process.env.REVIEW_SCREENSHOT_DIR, 'redaction-summary.png') });
@@ -196,7 +192,7 @@ for (const legacyAlias of [false, true]) test(`MCP Apps sizing and host expansio
     // The already expanded host displays both documents without another click.
     assert.equal(await frame.locator('#open-review').isVisible(), false);
     assert.equal(messages.length, 1);
-    assert.equal(messages[0].content[0].text, '已确认脱敏内容，请交给子代理继续分析。');
+    assert.equal(messages[0].content[0].text, '已确认脱敏内容，请使用云端模型继续分析。');
     assert.deepEqual(contexts, [{ structuredContent: { review_id: result.structuredContent.review_id, action: 'continue_confirmed_redaction' } }]);
     await page.evaluate(() => window.closeSidePanelForTest());
     await frame.locator('#open-review').waitFor();
@@ -225,7 +221,7 @@ test('unsupported or rejected model context keeps the review reference in a shor
       }, mode);
       await page.locator('#confirm').click();
       await page.waitForFunction(() => document.querySelector('#status').textContent.includes('已通知主会话'));
-      assert.equal(observed.messages[0].prompt, `已确认脱敏内容，请交给子代理继续分析。 （预览编号：${result.structuredContent.review_id}）`);
+      assert.equal(observed.messages[0].prompt, `已确认脱敏内容，请使用云端模型继续分析。 （预览编号：${result.structuredContent.review_id}）`);
       assert.equal(observed.calls.filter((call) => call.name === 'confirm_redaction').length, 1);
       assert.deepEqual(observed.errors, []);
       await page.close();
@@ -469,7 +465,7 @@ test('English review localizes labels, accessibility, errors and continuation wh
     await page.waitForFunction(() => !document.querySelector('#confirm').disabled);
     await page.locator('#confirm').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent.includes('main chat was notified'));
-    assert.equal(observed.messages[0].prompt, 'Redaction confirmed. Please continue the analysis with a subagent.');
+    assert.equal(observed.messages[0].prompt, 'Redaction confirmed. Please continue the analysis with the cloud model.');
     assert.equal(await page.locator('#confirm').textContent(), 'Confirmed');
     assert.deepEqual(observed.errors, []);
   } finally { await browser.close(); rpc.close(); }
@@ -483,8 +479,8 @@ test('custom review translations render safely and survive host metadata and con
     const source = pending.structuredContent.ui_translation_source;
     const translations = Object.fromEntries(Object.keys(source).map((key) => [key, key.includes('{review_id}') ? '確認済みです。続けてください。（確認番号：{review_id}）' : '表示テキスト']));
     translations['确认并继续'] = '確認して続行';
-    translations['已确认脱敏内容，请交给子代理继续分析。'] = '確認済みです。サブエージェントで分析を続けてください。';
-    translations['已确认，已通知主会话交接给子代理。'] = 'メインチャットに通知しました。';
+    translations['已确认脱敏内容，请使用云端模型继续分析。'] = '確認済みです。サブエージェントで分析を続けてください。';
+    translations['已确认，已通知主会话调用云端模型。'] = 'メインチャットに通知しました。';
     translations['原始内容'] = '<b>原文</b>';
     const result = await rpc.call('create_redaction_review', { ...args, ui_translations: translations });
     const page = await browser.newPage({ viewport: { width: 1440, height: 420 } });
@@ -499,5 +495,99 @@ test('custom review translations render safely and survive host metadata and con
     await page.waitForFunction(() => document.querySelector('#status').textContent === 'メインチャットに通知しました。');
     assert.equal(observed.messages[0].prompt, '確認済みです。サブエージェントで分析を続けてください。');
     assert.deepEqual(observed.errors, []);
+  } finally { await browser.close(); rpc.close(); }
+});
+
+test('cloud settings page saves custom provider/model, reloads them and keeps review intact', async () => {
+  const rpc = session(), browser = await launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 620, height: 900 } });
+    const review = await rpc.call('create_redaction_review', { model: 'local', audience: 'main', content: original });
+    const observed = await setupOpenAI(page, rpc, { displayMode: 'inline', toolOutput: review.structuredContent, toolResponseMetadata: review._meta });
+    await page.locator('#open-cloud-settings').click();
+    await page.locator('#cloud-model').waitFor({ state: 'visible' });
+    await page.locator('#cloud-provider-mode').selectOption('custom');
+    await page.locator('#cloud-provider').fill('my_gateway');
+    await page.locator('#cloud-base-url').fill('https://my.example/v1');
+    assert.equal(await page.locator('#cloud-api-key').getAttribute('type'), 'password');
+    await page.locator('#cloud-api-key').fill('sk-synthetic-ui-key');
+    await page.locator('#cloud-model').fill('vendor-large-model');
+    // Valid millisecond precision must not fail integer validation due to floating-point rounding.
+    await page.locator('#cloud-timeout').fill('1.001');
+    await page.locator('#cloud-save').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-status').textContent.includes('已保存'));
+    assert.equal(await page.locator('#cloud-api-key').inputValue(), '');
+    const saved = (await rpc.call('open_cloud_settings')).structuredContent.config;
+    assert.equal(saved.provider, 'my_gateway'); assert.equal(saved.model, 'vendor-large-model'); assert.equal(saved.timeout_ms, 1001);
+    assert.equal(saved.api_key, undefined);
+    assert.match(await page.locator('#cloud-key-hint').textContent(), /已保存/);
+    await page.locator('#cloud-model').fill('unsaved');
+    await page.locator('#cloud-reload').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-model').value === 'vendor-large-model');
+    if (process.env.REVIEW_SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.REVIEW_SCREENSHOT_DIR, 'cloud-settings.png'), fullPage: true });
+    await page.locator('#close-cloud-settings').click();
+    assert.equal(await page.locator('#confirm').isEnabled(), true);
+    assert.equal((await rpc.call('preview_redaction', { audience: 'main', review_id: review.structuredContent.review_id })).structuredContent.status, 'awaiting_confirmation');
+    assert.equal(observed.calls.some(call => call.name === 'run_cloud_analysis'), false);
+    assert.deepEqual(observed.errors, []);
+  } finally { await browser.close(); rpc.close(); }
+});
+
+test('standalone settings page supports OpenAI, errors and English labels without a review', async () => {
+  const rpc = session(), browser = await launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 620, height: 900 } });
+    const output = await rpc.call('open_cloud_settings', { response_language: 'en' });
+    const observed = await setupOpenAI(page, rpc, { toolOutput: output.structuredContent, toolResponseMetadata: output._meta });
+    assert.equal(await page.locator('#cloud-settings').isVisible(), true);
+    assert.equal(await page.locator('#confirm').isVisible(), false);
+    assert.equal(await page.locator('#cloud-save').textContent(), 'Apply settings');
+    await page.locator('#cloud-provider-mode').selectOption('openai');
+    await page.locator('#cloud-model').fill('my-openai-model');
+    await page.locator('#cloud-save').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-status').textContent.includes('settings saved'));
+    const saved = (await rpc.call('open_cloud_settings')).structuredContent.config;
+    assert.equal(saved.provider, 'openai'); assert.equal(saved.base_url, ''); assert.equal(saved.api_key_env, '');
+    await page.locator('#cloud-provider-mode').selectOption('custom');
+    await page.locator('#cloud-provider').fill('custom'); await page.locator('#cloud-base-url').fill('http://insecure.example'); await page.locator('#cloud-api-key').fill('sk-synthetic-other-key');
+    await page.locator('#cloud-save').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-status').textContent.includes('Enter an HTTPS'));
+    assert.equal((await rpc.call('open_cloud_settings')).structuredContent.config.provider, 'openai');
+    assert.deepEqual(observed.errors, []);
+  } finally { await browser.close(); rpc.close(); }
+});
+
+test('standalone settings restore native drafts on mobile and protect newer settings from an old form', async () => {
+  const rpc = session(), browser = await launch();
+  try {
+    await rpc.call('cloud_settings_update', { set: { model: 'draft-model' } });
+    const output = await rpc.call('open_cloud_settings', { response_language: 'zh-CN' });
+    const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
+    const observed = await setupOpenAI(page, rpc, { toolOutput: output.structuredContent });
+    assert.match(await page.locator('#cloud-status').textContent(), /已恢复/);
+    assert.equal(await page.locator('#cloud-model').inputValue(), 'draft-model');
+    assert.match(await page.locator('#cloud-current').textContent(), /test-large/);
+    assert.equal(await page.locator('#close-cloud-settings').isVisible(), false);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    if (process.env.REVIEW_SCREENSHOT_DIR) {
+      await fs.mkdir(process.env.REVIEW_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: path.join(process.env.REVIEW_SCREENSHOT_DIR, 'cloud-settings-mobile.png'), fullPage: true });
+    }
+    await rpc.call('save_cloud_settings', { config: { provider: 'openai', model: 'newer-model' } });
+    await page.locator('#cloud-save').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-status').textContent.includes('其他页面'));
+    assert.equal(await page.locator('#cloud-save').isDisabled(), true);
+    assert.equal((await rpc.call('select_cloud_model')).structuredContent.selected_model, 'newer-model');
+    await page.locator('#cloud-reload').click();
+    await page.waitForFunction(() => document.querySelector('#cloud-model').value === 'newer-model');
+    assert.equal(await page.locator('#cloud-save').isEnabled(), true);
+    assert.equal(await page.locator('#cloud-base-url').isDisabled(), true);
+    assert.equal(await page.locator('#cloud-custom').isVisible(), false);
+    await page.setViewportSize({ width: 1000, height: 850 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    if (process.env.REVIEW_SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.REVIEW_SCREENSHOT_DIR, 'cloud-settings-desktop.png'), fullPage: true });
+    assert.deepEqual(observed.errors, []);
+    assert.deepEqual(observed.messages, []);
+    assert.equal(observed.calls.some(call => call.name === 'run_cloud_analysis'), false);
   } finally { await browser.close(); rpc.close(); }
 });

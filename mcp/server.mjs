@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 import { collectMatches, normalizedText, assessRouting } from "./routing.mjs";
 import { detectContent, loadConfig, DetectionError } from "./detection.mjs";
 import { boundary } from "./detection-core.mjs";
-import { analysisSubagentInstructions } from "./subagent-policy.mjs";
+import { analysisCloudInstructions } from "./cloud-policy.mjs";
+import { CloudError, loadCloudConfig, configRevision } from "./cloud-config.mjs";
+import { settingsCapability, settingsLanguage, readCloudSettings, updateCloudSettings, applyCloudSettings, resetCloudSettings, cloudSettingsPage, saveCloudSettingsPage } from "./cloud-settings.mjs";
+import { runCloudExec, shutdownCloudExec } from "./cloud-exec.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageInfo = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
@@ -24,12 +27,9 @@ const MAX_CONTENT_CHARS = 200_000;
 const REVIEW_TTL_MS = 30 * 60 * 1000;
 const reviews = new Map();
 const modelSelections = new Map();
-const SUBAGENT_MODEL_POLICY = {
-  tool: "select_subagent_model",
-  multiple_models: "wait_for_user_selection",
-  cloud_large_models_only: true,
-  explicit_spawn_model_required: true,
-};
+const cloudRequests = new Map();
+const cloudJobs = new Map();
+const CLOUD_MODEL_POLICY = { tool: "select_cloud_model", settings_tool: "open_cloud_settings", execution: "codex exec" };
 
 const TYPE_LABELS = {
   government_id: "ID",
@@ -260,17 +260,20 @@ function versionFields(review) {
   return { sanitized_sha256: review.hash, detection: review.detection ? { status: "completed", policy_version: review.detection.policy_version, detectors: review.detection.detectors, semantic_guarantee: false } : undefined, validation: { status: "passed", scope: "local_rules", semantic_guarantee: false }, content_retention: reviewMetrics(review) };
 }
 // Guidance for existing review states; the host model still controls its turn
-// and subagent tools. These messages do not enforce host execution.
+// and MCP calls. Cloud execution itself is owned by this server.
 function reviewNextStep(review) {
   switch (review.status) {
     case "awaiting_confirmation":
       return "The preview is ready. Briefly ask the user to review and confirm it, then end this turn and wait. Do not continue substantive research, analysis or a final answer while awaiting confirmation. Local inspection needed to correct redaction remains permitted.";
     case "confirmed":
-      return "Redaction is confirmed. Resolve cloud model selection for this task, reusing a valid explicit choice for the same task. Call handoff_to_subagent with the current token and sanitized hash, then immediately create the host subagent using the returned spawn_parameters and only subagent_payload as its message. Wait for its result before preparing the final response; do not perform the substantive analysis yourself.";
-    case "handed_off":
-      return "Only a handoff package has been generated; this status does not prove a subagent started or finished. If not yet created, use the successful handoff response's spawn_parameters and subagent_payload to create it now. Otherwise wait for or read that subagent's result, then check and present its findings. Do not consume the token again or duplicate the analysis locally. If creation fails, report the limitation; do not silently switch to local analysis.";
+      return "Redaction is confirmed. Call select_cloud_model, then run_cloud_analysis with audience=main, model_selection_id, review_id, current handoff_token and expected_sanitized_sha256. Poll get_cloud_result before preparing the answer.";
+    case "running":
+      return `Cloud analysis is running. Poll get_cloud_result with job_id=${review.jobId}. Do not submit it again.`;
+    case "completed":
+    case "failed":
+      return `Read get_cloud_result with job_id=${review.jobId}. Do not automatically repeat cloud analysis. A failed sensitive run requires fresh confirmation before retry.`;
     default:
-      return "Authorization was rejected or revoked. Stop this handoff. Do not create a subagent or silently continue the analysis locally. Follow a new explicit user request if the task changes.";
+      return "Authorization was rejected or revoked. Stop this handoff. Do not start cloud analysis or silently continue the analysis locally. Follow a new explicit user request if the task changes.";
   }
 }
 function updateEditedSanitized(review, edited) {
@@ -290,6 +293,7 @@ function originalOffset(review, offset, side) {
   return offset + delta;
 }
 function reviseReview(review, args) {
+  if (["running", "completed"].includes(review.status) && ["sensitive_spans", "redactions", "edited_sanitized"].some(key => args[key] !== undefined)) return errorPayload("This version was already submitted to the cloud.", "cloud_already_started");
   const modes = ["sensitive_spans", "redactions", "edited_sanitized"].filter((key) => args[key] !== undefined);
   if (modes.length > 1) return errorPayload("Use one structured redaction operation at a time.", "invalid_request");
   if (!modes.length) return null;
@@ -349,11 +353,11 @@ function responsePayload(payload, toolName) {
     ? { ...payload, ui_translations: undefined, original_content: undefined, original_changes: undefined, changes: safeChanges(payload.changes || []), change_count: (payload.changes || []).length, change_summary: changeSummary(payload.changes || []) }
     : payload;
   const result = {
-    content: [{ type: "text", text: JSON.stringify(modelPayload) }],
+    content: [{ type: "text", text: toolName?.startsWith("cloud_settings_") && payload.message ? payload.message : JSON.stringify(modelPayload) }],
     structuredContent: modelPayload,
     isError: payload?.ok === false,
   };
-  if (["create_redaction_review", "preview_redaction"].includes(toolName)) {
+  if (["create_redaction_review", "preview_redaction", "open_cloud_settings"].includes(toolName)) {
     result._meta = {
       ui: { resourceUri: UI_URI },
       "ui/resourceUri": UI_URI,
@@ -369,56 +373,65 @@ function errorPayload(message, code = "invalid_request") {
   return { ok: false, error: { code, message } };
 }
 
-// The host supplies its current spawnable cloud model IDs. This MCP process
-// cannot discover host availability or verify a user's choice independently.
-function selectSubagentModel(args) {
-  const now = Date.now();
-  for (const [id, selection] of modelSelections) {
-    if (selection.expiresAt <= now) modelSelections.delete(id);
-  }
-  if (!Array.isArray(args.available_models) || args.available_models.length === 0) {
-    return errorPayload("Read the host's available cloud subagent models first; do not use an implicit default.", "available_models_required");
-  }
-  if (args.available_models.length > 128 || args.available_models.some((model) =>
-    typeof model !== "string" || !model.trim() || model.length > 200 || /^(unknown|cloud|default|auto|configured host model)$/i.test(model.trim()))) {
-    return errorPayload("available_models must contain actual host-supported cloud model IDs.", "invalid_available_models");
-  }
-  const hostModels = [...new Set(args.available_models.map((model) => model.trim()))];
-  if (!Array.isArray(args.large_model_ids) || args.large_model_ids.some((model) =>
-    typeof model !== "string" || !hostModels.includes(model))) {
-    return errorPayload("Identify cloud large models from host capability descriptions, using exact IDs from available_models. An unknown capability is not eligible.", "large_model_classification_required");
-  }
-  const available = hostModels.filter((model) => args.large_model_ids.includes(model));
-  const selected = typeof args.selected_model === "string" ? args.selected_model.trim() : "";
-  if (selected && !hostModels.includes(selected)) {
-    return errorPayload("The selected model is unavailable. Refresh the host list and let the user choose again; do not downgrade silently.", "model_unavailable");
-  }
-  if (selected && !available.includes(selected)) {
-    return errorPayload("Complex analysis requires a cloud large model. Lightweight or unclassified models cannot be selected.", "cloud_large_model_required");
-  }
-  if (available.length === 0) {
-    return errorPayload("No eligible cloud large model is available. Keep the data local and explain the limitation; do not fall back to a lightweight model.", "no_cloud_large_model");
-  }
-  if (available.length > 1 && (!selected || args.user_confirmed_selection !== true)) {
-    return {
-      ok: true,
-      selection_required: true,
-      available_models: available,
-      next_step: "Show every eligible cloud large model to the user and wait for their explicit choice. Do not create a subagent or consume a redaction token yet.",
-    };
-  }
-  const model = selected || available[0];
+function cloudSettings(args, save = false) {
+  return { ok: true, ...(save ? saveCloudSettingsPage(args.config, args.expected_revision) : cloudSettingsPage()),
+    next_step: "Configure the cloud model in plugin settings. Enter the API key directly in the standalone settings password field, never in chat. Saved keys are not returned by tools." };
+}
+function selectCloudModel() {
+  const config = loadCloudConfig();
+  if (!config) return errorPayload("Open this plugin's detail page, fill in Cloud model settings and apply them first. If the host does not show settings, use open_cloud_settings.", "cloud_config_required");
   const id = `model_${crypto.randomBytes(12).toString("hex")}`;
-  modelSelections.set(id, { model, expiresAt: now + REVIEW_TTL_MS });
-  return {
-    ok: true,
-    selection_required: false,
-    model_selection_id: id,
-    selected_model: model,
-    spawn_parameters: { model, fork_turns: "none" },
-    subagent_instructions: analysisSubagentInstructions({ language: args.response_language }),
-    next_step: "Tell the user which cloud large model will run. Use spawn_parameters as actual host tool arguments, not as text in the task message. For route=subagent, create the subagent now using subagent_instructions as the mandatory role prefix and minimum non-sensitive task/context. Public-source retrieval and analysis belong to the subagent; do not first retrieve or extract public material in the main session. No redaction or review token is needed. For sensitive handoffs, use only the payload from handoff_to_subagent instead of this direct-task prefix. For sensitive content, complete local redaction and consent first. Return analysis to the local-model main session for final presentation.",
-  };
+  for (const [key, selection] of modelSelections) if (selection.expiresAt <= Date.now()) modelSelections.delete(key);
+  modelSelections.set(id, { config, revision: configRevision(config), model: config.model, expiresAt: Date.now() + REVIEW_TTL_MS });
+  return { ok: true, selection_required: false, model_selection_id: id, selected_model: config.model, provider: config.provider,
+    next_step: "Announce the saved provider and model. Call run_cloud_analysis with cloud_request_id for an assessed non-sensitive task, or the confirmed review token and hash for sanitized analysis. Then poll get_cloud_result. Do not create a host subagent." };
+}
+function selectedCloud(args) {
+  const selection = modelSelections.get(args.model_selection_id);
+  if (!selection || selection.expiresAt <= Date.now()) throw new CloudError("model_selection_required", "Call select_cloud_model before cloud analysis.");
+  if (selection.revision !== configRevision(loadCloudConfig())) throw new CloudError("model_selection_mismatch", "Cloud settings changed. Select the saved provider and model again.");
+  return selection;
+}
+function jobResult(job) {
+  return { ok: job.status !== "failed", job_id: job.id, status: job.status, provider: job.config.provider, model: job.config.model,
+    ...(job.review_id ? { review_id: job.review_id } : {}),
+    ...(job.result ? { analysis: job.result } : {}), ...(job.error ? { error: job.error } : {}),
+    next_step: job.status === "running" ? "Wait briefly, then call get_cloud_result with job_id. Do not start duplicate analysis."
+      : job.status === "completed" ? "Check the cloud analysis and prepare the final response in the local main session."
+      : "Report the failure. Do not automatically retry or silently switch models. A sensitive retry requires fresh confirmation." };
+}
+function startCloudJob(selection, payload, review) {
+  for (const [id, job] of cloudJobs) if (job.status !== "running" && job.expiresAt <= Date.now()) cloudJobs.delete(id);
+  const job = { id: `cloud_${crypto.randomBytes(12).toString("hex")}`, status: "running", config: selection.config, review_id: review?.id, expiresAt: Date.now() + REVIEW_TTL_MS };
+  cloudJobs.set(job.id, job);
+  if (review) { review.status = "running"; review.jobId = job.id; }
+  runCloudExec(selection.config, payload, { sanitized: Boolean(review) }).then(result => {
+    job.status = "completed"; job.result = result;
+  }, error => {
+    job.status = "failed"; job.error = { code: error instanceof CloudError ? error.code : "cloud_exec_failed", message: error instanceof CloudError ? error.message : "Cloud analysis failed." };
+  }).finally(() => {
+    job.expiresAt = Date.now() + REVIEW_TTL_MS;
+    if (review && review.status === "running") review.status = job.status;
+  });
+  return jobResult(job);
+}
+async function runCloudAnalysis(args) {
+  if (args.audience !== "main") return errorPayload("Cloud execution is controlled by the main session.", "audience_denied");
+  if (args.review_id && args.cloud_request_id) return errorPayload("Use either a confirmed review or an assessed request.");
+  if (args.review_id) return handoff(args);
+  const request = cloudRequests.get(args.cloud_request_id);
+  if (!request || request.expiresAt <= Date.now()) return errorPayload("Assess this exact task using route_request first.", "cloud_request_required");
+  if (request.jobId) return jobResult(cloudJobs.get(request.jobId));
+  const selection = selectedCloud(args);
+  if (request.policyHash !== hash(JSON.stringify(loadConfig()))) return errorPayload("Detection policy changed. Assess the task again.", "detection_policy_changed");
+  const result = startCloudJob(selection, { instructions: analysisCloudInstructions({ language: request.language }), task: request.prompt, context: request.context });
+  request.jobId = result.job_id;
+  return result;
+}
+function getCloudResult(args) {
+  const job = cloudJobs.get(args.job_id);
+  if (!job || job.expiresAt <= Date.now()) return errorPayload("Cloud job not found or expired; do not automatically resubmit it.", "cloud_job_not_found");
+  return jobResult(job);
 }
 
 function routeRequest(args) {
@@ -452,11 +465,11 @@ function routeRequest(args) {
     if (review?.status === "confirmed") {
       return {
         ...base,
-        route: "subagent_after_confirmation",
+        route: "cloud_after_confirmation",
         assessment_required: false,
         missing_assessment: [],
         review_id: review.id,
-        subagent_model_policy: SUBAGENT_MODEL_POLICY,
+        cloud_model_policy: CLOUD_MODEL_POLICY,
         next_step: reviewNextStep(review),
       };
     }
@@ -464,38 +477,49 @@ function routeRequest(args) {
       ...base,
       route: "redaction_required",
       ...(review ? { assessment_required: false, missing_assessment: [] } : {}),
-      subagent_model_policy: SUBAGENT_MODEL_POLICY,
-      next_step: review ? reviewNextStep(review) : "Create a redaction review, briefly request confirmation, then end this turn and wait. Do not continue substantive research or analysis while awaiting confirmation. Before handoff, resolve the cloud model with select_subagent_model and wait for the user's choice when multiple eligible cloud large models are available. Then hand off only sanitized content.",
+      cloud_model_policy: CLOUD_MODEL_POLICY,
+      next_step: review ? reviewNextStep(review) : "Create a redaction review, briefly request confirmation, then end this turn and wait. Do not continue substantive research or analysis while awaiting confirmation. Before handoff, call select_cloud_model to read the provider and model saved in the plugin page. Then hand off only sanitized content.",
     };
   }
   if (assessment.route === "assessment_required") {
     return { ...base, next_step: "The local main-session model must assess task complexity, actual sensitivity and data provenance, then call route_request with complexity, sensitivity, data_scope and a brief assessment_reason without quoting sensitive values. Use task meaning and relevant context, not keyword counts or model names. Pattern candidates are advisory: public values can be non-sensitive, and confidential meaning can be sensitive without any pattern match. Unknown source scope cannot be cleared for cloud analysis. This is local reasoning, not a request for another user confirmation. Inspect actual unread referenced material when needed." };
   }
-  if (assessment.route === "subagent") {
+  if (assessment.route === "cloud_exec") {
     return {
       ...base,
-      subagent_model_policy: SUBAGENT_MODEL_POLICY,
-      subagent_instructions: analysisSubagentInstructions({ language: args.response_language }),
-      next_step: "Call select_subagent_model with the host's available cloud models and host-identified large_model_ids and wait for the user's choice when multiple eligible cloud large models are available. Explicitly pass the returned spawn_parameters to the host subagent tool with minimum non-sensitive context directly; no redaction review, confirmation or handoff token is needed. Include subagent_instructions as the mandatory role prefix. For public-information tasks, give it the research objective and public links if already known; let it search, retrieve public material, verify and analyze. Do not first retrieve or extract public material in the main session. Return its result to the main session.",
+      cloud_model_policy: CLOUD_MODEL_POLICY,
+      cloud_instructions: analysisCloudInstructions({ language: args.response_language }),
+      next_step: "Call select_cloud_model to use the provider and model saved in the plugin page, then run_cloud_analysis with cloud_request_id. Poll get_cloud_result and return the findings to the main session. Public-source retrieval belongs to the cloud CLI. No redaction consent is required for assessed non-sensitive material.",
     };
   }
   return { ...base, next_step: "Complete in the current local-model main session." };
 }
 
 async function routeWithDetection(args) {
+  let checkedPolicy;
   // Contextual format matches remain advisory; mandatory protection cannot be cleared
   // merely by declaring the same content low-sensitivity.
   if (args.request_kind !== "continuation" && args.content_pending !== true && args.complexity === "complex" && args.sensitivity === "low") {
     const content = [args.prompt, args.context].filter((v) => typeof v === "string").join("\n");
     if (content.trim()) {
       const detection = await detectContent(content);
+      checkedPolicy = detection.policy_hash;
+      if (checkedPolicy !== hash(JSON.stringify(loadConfig()))) return errorPayload("Detection policy changed during assessment. Assess the task again.", "detection_policy_changed");
       if (detection.findings.some((item) => item.protection === "required")) {
         const result = routeRequest({ ...args, sensitivity: "high" });
         return { ...result, ...(result.sensitivity ? { sensitivity: { ...result.sensitivity, source: "required_detectors" } } : {}), required_protection_detected: true };
       }
     }
   }
-  return routeRequest(args);
+  const result = routeRequest(args);
+  if (result.route === "cloud_exec") {
+    for (const [key, request] of cloudRequests) if (request.expiresAt <= Date.now()) cloudRequests.delete(key);
+    const id = `request_${crypto.randomBytes(12).toString("hex")}`;
+    cloudRequests.set(id, { prompt: args.prompt, context: args.context || "", language: args.response_language,
+      policyHash: checkedPolicy || hash(JSON.stringify(loadConfig())), expiresAt: Date.now() + REVIEW_TTL_MS });
+    result.cloud_request_id = id;
+  }
+  return result;
 }
 
 async function createReview(args) {
@@ -568,7 +592,7 @@ async function createReview(args) {
     original_content: content,
     sanitized_content: sanitized,
     original_storage: "main_process_memory_only",
-    subagent_access: "blocked_until_human_confirmation",
+    cloud_access: "blocked_until_human_confirmation",
     confirmation_required: true,
     next_step: reviewNextStep(review),
   };
@@ -596,6 +620,7 @@ function previewReview(args) {
     ok: true,
     review_id: review.id,
     status: review.status,
+    ...(review.jobId ? { job_id: review.jobId } : {}),
     filename: review.filename,
     response_language: review.responseLanguage,
     ui_translations: review.uiTranslations,
@@ -616,6 +641,7 @@ function confirmReview(args) {
   const result = getReview(args);
   if (result.error) return result.error;
   const { review } = result;
+  if (["running", "completed"].includes(review.status)) return errorPayload("This version was already submitted to the cloud.", "cloud_already_started");
   if (args.confirmed !== true) {
     review.status = "rejected";
     review.token = null;
@@ -637,7 +663,7 @@ function confirmReview(args) {
     handoff_ready: true,
     handoff_token: review.token,
     ...versionFields(review),
-    subagent_access: "sanitized_content_only",
+    cloud_access: "sanitized_content_only",
     change_count: review.changes.length,
     change_summary: changeSummary(review.changes),
     next_step: reviewNextStep(review),
@@ -648,6 +674,7 @@ function revokeReview(args) {
   const result = getReview(args);
   if (result.error) return result.error;
   const { review } = result;
+  if (["running", "completed"].includes(review.status)) return errorPayload("Cloud analysis already started; transmitted data cannot be recalled.", "cloud_already_started");
   review.status = "revoked";
   review.token = null;
   return { ok: true, review_id: review.id, status: review.status, handoff_ready: false, next_step: reviewNextStep(review) };
@@ -657,21 +684,13 @@ async function handoff(args) {
   purgeExpired();
   const review = reviews.get(args.review_id);
   if (!review) return errorPayload("review_id is unknown or expired.", "review_not_found");
-  if (args.audience !== "subagent") return errorPayload("handoff_to_subagent requires audience=subagent.", "audience_required");
-  if (typeof args.model !== "string" || !args.model.trim()) return errorPayload("A cloud-model name is required for subagent handoff.", "model_required");
   if (review.status !== "confirmed" || !review.token || args.handoff_token !== review.token) {
     return errorPayload("Human confirmation is required and the one-time handoff token must match.", "confirmation_required");
   }
-  if (args.expected_sanitized_sha256 !== undefined && args.expected_sanitized_sha256 !== review.hash) {
+  if (args.expected_sanitized_sha256 !== review.hash) {
     return errorPayload("The sanitized version has changed. Read the current review before handing it off.", "version_mismatch");
   }
-  const selection = modelSelections.get(args.model_selection_id);
-  if (!selection || selection.expiresAt <= Date.now()) {
-    return errorPayload("Resolve the cloud model with select_subagent_model before handoff. Multiple available models require the user's choice.", "model_selection_required");
-  }
-  if (selection.model !== args.model) {
-    return errorPayload("The handoff model must match the resolved model; do not fall back to the host default.", "model_selection_mismatch");
-  }
+  const selection = selectedCloud(args);
   const bodyError = validateBody(review, review.sanitized, "handoff");
   if (bodyError) return bodyError;
   const task = typeof args.task === "string" ? args.task : "Analyze the sanitized material and return evidence-based findings.";
@@ -688,21 +707,10 @@ async function handoff(args) {
       || review.expiresAt <= Date.now() || selection.expiresAt <= Date.now()) return errorPayload("Authorization changed during detection. Read the current review.", "version_mismatch");
   const finalError = validateBody(review, review.sanitized, "handoff");
   if (finalError) return finalError;
+  selectedCloud(args); // Settings may have changed while detection was running.
   review.token = null;
-  review.status = "handed_off";
-  return {
-    ok: true,
-    review_id: review.id,
-    status: review.status,
-    spawn_parameters: { model: selection.model, fork_turns: "none" },
-    next_step: reviewNextStep(review),
-    subagent_payload: {
-      execution_role: "sanitized_analysis_subagent",
-      subagent_instructions: analysisSubagentInstructions({ sanitized: true, language: review.responseLanguage }),
-      task,
-      sanitized_content: review.sanitized,
-    },
-  };
+  return startCloudJob(selection, { instructions: analysisCloudInstructions({ sanitized: true, language: review.responseLanguage }), task, sanitized_content: review.sanitized }, review);
+
 }
 
 const spanSchema = { type: "array", items: { type: "object", properties: {
@@ -729,8 +737,8 @@ function toolDefinitions() {
           model: { type: "string" },
           user_confirmed_small_model: { type: "boolean", description: "Set to true only after the user explicitly confirms that the current main session uses a locally deployed model." },
           prompt: { type: "string" },
-          context: { type: "string", description: "Relevant prior task context and locally extracted content. Exclude unrelated earlier tasks. Never pass original data to a cloud subagent." },
-          content_pending: { type: "boolean", description: "True for unread user-supplied files, attachments or private/unknown referenced material that needs local inspection. Public web research alone does not set this flag; the non-sensitive subagent retrieves public sources." },
+          context: { type: "string", description: "Relevant prior task context and locally extracted content. Exclude unrelated earlier tasks. Never pass original data to the cloud CLI." },
+          content_pending: { type: "boolean", description: "True for unread user-supplied files, attachments or private/unknown referenced material that needs local inspection. Public web research alone does not set this flag; the cloud CLI retrieves public sources." },
           request_kind: { type: "string", enum: ["task", "continuation"], description: "Use continuation only to advance an existing workflow without changed scope or material; every prompt is still assessed." },
           complexity: { type: "string", enum: ["simple", "complex"], description: "Judge reasoning depth, synthesis, uncertainty and steps from task meaning, irrespective of domain vocabulary or prompt length." },
           sensitivity: { type: "string", enum: ["low", "medium", "high"], description: "Main-session semantic judgment of actual content, including confidential meaning without pattern matches. Public amounts or entity names are not automatically sensitive." },
@@ -742,19 +750,50 @@ function toolDefinitions() {
       },
     },
     {
-      name: "select_subagent_model",
-      title: "Select a cloud analysis model",
-      description: "Call from the main session before creating a subagent for complex analysis. Supply the complete host cloud model list and large-model IDs identified from host capability descriptions. Choose only among cloud large models and wait for user selection when several are eligible. Eligibility is based on host capability descriptions, never substrings in a model name. Models the host classifies as lightweight or unknown are ineligible. This tool does not create a subagent.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          available_models: { type: "array", minItems: 1, maxItems: 128, items: { type: "string", minLength: 1, maxLength: 200 }, description: "Actual cloud model IDs from the host subagent tool description or model enumeration API. Do not invent IDs from memory or supply only the default model." },
-          large_model_ids: { type: "array", maxItems: 128, items: { type: "string", minLength: 1, maxLength: 200 }, description: "Cloud large-model IDs from available_models, identified using host capability descriptions. Exclude lightweight models and models with unknown capabilities. Use capability descriptions for every candidate; model names do not determine eligibility." },
-          selected_model: { type: "string", description: "The exact model ID selected by the user. May be omitted when only one candidate is eligible." },
-          user_confirmed_selection: { type: "boolean", description: "Set to true only after the user explicitly selects this cloud model. Redaction confirmation is not a model choice." },
-        },
-        required: ["available_models", "large_model_ids"],
-      },
+      name: "cloud_settings_read", title: "云端模型设置 / Cloud model settings",
+      description: "Read the native plugin settings form and locally saved draft. No inference or model change occurs.",
+      inputSchema: { type: "object", properties: {} },
+      _meta: { ui: { visibility: ["app"] } },
+    },
+    {
+      name: "cloud_settings_update", title: "保存草稿 / Save draft",
+      description: "Update displayed settings fields in a local draft. Does not change the active cloud configuration.",
+      inputSchema: { type: "object", properties: { set: { type: "object", minProperties: 1, additionalProperties: false, properties: {
+        provider_type: { type: "string", enum: ["OpenAI / ChatGPT", "Custom"] }, provider_id: { type: "string" },
+        model: { type: "string" }, base_url: { type: "string" }, api_key_env: { type: "string" }, timeout_seconds: { type: "number", minimum: 1, maximum: 600 },
+      } } }, required: ["set"] },
+      _meta: { ui: { visibility: ["app"] } },
+    },
+    {
+      name: "cloud_settings_apply", title: "应用配置 / Apply settings",
+      description: "Validate and activate the saved settings draft. Saves locally without sending an inference request.",
+      inputSchema: { type: "object", properties: {} },
+      _meta: { ui: { visibility: ["app"] } },
+    },
+    {
+      name: "cloud_settings_reset", title: "撤销草稿 / Discard draft",
+      description: "Discard unapplied settings edits and restore the active cloud configuration in the form.",
+      inputSchema: { type: "object", properties: {} },
+      _meta: { ui: { visibility: ["app"] } },
+    },
+    {
+      name: "open_cloud_settings", title: "打开完整设置 / Open settings",
+      description: "Open the plugin page to configure the cloud provider and exact model used by codex exec. Read-only; no cloud request is sent.",
+      inputSchema: { type: "object", properties: {} },
+      _meta: { ui: { resourceUri: UI_URI, visibility: ["model", "app"] }, "openai/ui": { entrypoints: [{ type: "settings", searchTerms: ["cloud", "model", "provider", "云端", "模型", "供应商"] }] }, "openai/outputTemplate": UI_URI, "ui/resourceUri": UI_URI, "openai/widgetAccessible": true },
+    },
+    {
+      name: "save_cloud_settings", title: "Save cloud settings",
+      description: "Save settings submitted by the app, including an optional API key entered in its password field. Stored keys are never returned. An empty key retains existing credentials only for the same provider and URL.",
+      inputSchema: { type: "object", properties: { config: { type: "object", additionalProperties: false, properties: {
+        provider: { type: "string" }, model: { type: "string" }, base_url: { type: "string" }, api_key: { type: "string", maxLength: 4096, writeOnly: true }, api_key_env: { type: "string" }, timeout_ms: { type: "integer", minimum: 1000, maximum: 600000 },
+      }, required: ["provider", "model"] }, expected_revision: { type: "string", description: "Configuration revision returned when this settings form was opened." } }, required: ["config"] },
+      _meta: { ui: { visibility: ["app"] }, "openai/widgetAccessible": true },
+    },
+    {
+      name: "select_cloud_model", title: "Read configured cloud model",
+      description: "Read the provider and model saved by the user in the plugin page. Returns a configuration-bound selection for run_cloud_analysis. Never use host subagent model lists.",
+      inputSchema: { type: "object", properties: {} },
     },
     {
       name: "detect_sensitive_content",
@@ -765,7 +804,7 @@ function toolDefinitions() {
     {
       name: "create_redaction_review",
       title: "Create a redaction comparison",
-      description: "Identify sensitive information in the main session and create a two-column comparison. After creating the preview, briefly request confirmation, end this turn and wait. Do not continue substantive analysis or research. Keep original text only in local memory; do not hand it to a subagent before human confirmation.",
+      description: "Identify sensitive information in the main session and create a two-column comparison. After creating the preview, briefly request confirmation, end this turn and wait. Do not continue substantive analysis or research. Keep original text only in local memory; do not send it to cloud execution before human confirmation.",
       inputSchema: {
         type: "object",
         properties: {
@@ -805,10 +844,17 @@ function toolDefinitions() {
       inputSchema: { type: "object", properties: { review_id: { type: "string" }, audience: { type: "string", enum: ["main"] } }, required: ["review_id", "audience"] },
     },
     {
-      name: "handoff_to_subagent",
-      title: "Hand sanitized material to a cloud model",
-      description: "Validate redaction confirmation and cloud model selection, then generate a handoff package without creating a subagent. The main session uses the outer spawn_parameters as actual host subagent creation arguments and serializes only subagent_payload as the task message. Keep other outer fields in the main session. Do not omit the model argument or silently downgrade. The task package excludes replacement records, filenames, original text, sensitive values, and reverse mappings.",
-      inputSchema: { type: "object", properties: { review_id: { type: "string" }, handoff_token: { type: "string" }, expected_sanitized_sha256: { type: "string", description: "The sanitized-version hash returned by the main-session read-only preview, used to verify the version before handoff." }, audience: { type: "string", enum: ["subagent"] }, model: { type: "string" }, model_selection_id: { type: "string", description: "The model selection ID returned by select_subagent_model. The model must match the selection." }, task: { type: "string" } }, required: ["review_id", "handoff_token", "audience", "model", "model_selection_id"] },
+      name: "run_cloud_analysis", title: "Run cloud analysis via codex exec",
+      description: "Start an asynchronous codex exec job with the selected configuration. For non-sensitive work use cloud_request_id from route_request; no arbitrary replacement content is accepted. For sensitive work use a confirmed review, its one-time token and exact sanitized hash. Only sanitized content and a checked task enter the CLI. Poll get_cloud_result; never create a host subagent.",
+      inputSchema: { type: "object", properties: {
+        audience: { type: "string", enum: ["main"] }, model_selection_id: { type: "string" }, cloud_request_id: { type: "string" },
+        review_id: { type: "string" }, handoff_token: { type: "string" }, expected_sanitized_sha256: { type: "string" }, task: { type: "string", maxLength: 200000 },
+      }, required: ["audience", "model_selection_id"] },
+    },
+    {
+      name: "get_cloud_result", title: "Read cloud analysis result",
+      description: "Read the running, completed or failed state of an existing cloud job. Poll after a short wait while running; this never starts a new request.",
+      inputSchema: { type: "object", properties: { job_id: { type: "string" } }, required: ["job_id"] },
     },
   ].map((definition) => ({
     ...definition,
@@ -824,10 +870,10 @@ function toolDefinitions() {
       },
     },
     annotations: {
-      readOnlyHint: ["check_model", "route_request", "preview_redaction", "detect_sensitive_content"].includes(definition.name),
+      readOnlyHint: ["check_model", "route_request", "preview_redaction", "detect_sensitive_content", "open_cloud_settings", "cloud_settings_read", "get_cloud_result"].includes(definition.name),
       destructiveHint: false,
       idempotentHint: ["check_model", "route_request", "preview_redaction", "revoke_redaction"].includes(definition.name),
-      openWorldHint: ["detect_sensitive_content", "create_redaction_review", "handoff_to_subagent"].includes(definition.name),
+      openWorldHint: ["detect_sensitive_content", "create_redaction_review", "run_cloud_analysis"].includes(definition.name),
     },
   }));
 }
@@ -844,7 +890,7 @@ async function handleRpc(message) {
   if (message.method.startsWith("notifications/")) return null;
   try {
     if (message.method === "initialize") {
-      return { jsonrpc: "2.0", id, result: { protocolVersion: params.protocolVersion || "2024-11-05", capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false } }, serverInfo: { name: SERVER_NAME, title: "Codex Edge-Cloud Collaboration", version: VERSION } } };
+      return { jsonrpc: "2.0", id, result: { protocolVersion: params.protocolVersion || "2024-11-05", capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false }, extensions: { "openai/settings": settingsCapability } }, serverInfo: { name: SERVER_NAME, title: "Codex Edge-Cloud Collaboration", version: VERSION } } };
     }
     if (message.method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (message.method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: toolDefinitions() } };
@@ -856,22 +902,30 @@ async function handleRpc(message) {
     if (message.method === "tools/call") {
       const name = params.name;
       const args = { ...(isObject(params.arguments) ? params.arguments : {}) };
-      args.response_language = responseLanguage(args, reviews.get(args.review_id)?.responseLanguage || "en");
+      args.response_language = responseLanguage(args, reviews.get(args.review_id)?.responseLanguage || (name?.startsWith("cloud_settings_") || name === "open_cloud_settings" ? settingsLanguage() : "en"));
       let payload;
       if (name === "check_model") payload = { ok: true, ...modelGuard(args.model, args.user_confirmed_small_model, args.response_language) };
       else if (name === "route_request") payload = await routeWithDetection(args);
-      else if (name === "select_subagent_model") payload = selectSubagentModel(args);
+      else if (name === "open_cloud_settings") payload = cloudSettings(args);
+      else if (name === "save_cloud_settings") payload = cloudSettings(args, true);
+      else if (name === "cloud_settings_read") payload = readCloudSettings(args.response_language);
+      else if (name === "cloud_settings_update") payload = updateCloudSettings(args.set, args.response_language);
+      else if (name === "cloud_settings_apply") payload = applyCloudSettings(args.response_language);
+      else if (name === "cloud_settings_reset") payload = resetCloudSettings(args.response_language);
+      else if (name === "select_cloud_model") payload = selectCloudModel();
+      else if (name === "get_cloud_result") payload = getCloudResult(args);
       else if (name === "detect_sensitive_content") payload = await inspectContent(args);
       else if (name === "create_redaction_review") payload = await createReview(args);
       else if (name === "preview_redaction") payload = previewReview(args);
       else if (name === "confirm_redaction") payload = confirmReview(args);
       else if (name === "revoke_redaction") payload = revokeReview(args);
-      else if (name === "handoff_to_subagent") payload = await handoff(args);
+      else if (name === "run_cloud_analysis") payload = await runCloudAnalysis(args);
       else payload = errorPayload(`Unknown tool: ${name}`, "unknown_tool");
-      return { jsonrpc: "2.0", id, result: responsePayload(name === "handoff_to_subagent" ? payload : { response_language: args.response_language, ...payload }, name) };
+      return { jsonrpc: "2.0", id, result: responsePayload({ response_language: args.response_language, ...payload }, name) };
     }
     return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${message.method}` } };
   } catch (error) {
+    if (error instanceof CloudError) return { jsonrpc: "2.0", id, result: responsePayload(errorPayload(error.message, error.code), params.name) };
     if (error instanceof DetectionError) return { jsonrpc: "2.0", id, result: responsePayload(errorPayload("Local detection did not complete. Fix the detector configuration or retry locally; cloud handoff remains blocked.", error.code), params.name) };
     console.error(`[${SERVER_NAME}]`, error?.stack || error);
     return { jsonrpc: "2.0", id, error: { code: -32000, message: error?.message || String(error) } };
@@ -879,7 +933,18 @@ async function handleRpc(message) {
 }
 
 const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+let stopping = false;
+async function stopServer() {
+  if (stopping) return;
+  stopping = true;
+  await shutdownCloudExec();
+  process.exit(0);
+}
+process.once("SIGTERM", stopServer);
+process.once("SIGINT", stopServer);
+rl.once("close", stopServer);
 rl.on("line", async (line) => {
+  if (stopping) return;
   if (!line.trim()) return;
   let message;
   try {

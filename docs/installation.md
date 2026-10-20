@@ -2,11 +2,13 @@
 
 [Project home](../README.md) · [简体中文](zh-CN/installation.md)
 
+After installation and enablement, configure the model under **Plugin details → Settings → Cloud model**, or choose **Open settings**. ZIP imports use the same entrypoint; no installer script or chat is required for configuration. See [configuration](configuration.md) for compatibility and older-client alternatives.
+
 ## Prerequisites
 
 - Install **Node.js 20+** to run the plugin's local service. The client process must be able to find `node` on its PATH.
 - ZIP import requires the **Codex desktop app**. Command-line installation also requires a **Codex CLI** that supports `plugin` commands.
-- **Run the main chat model locally.** The plugin asks you to confirm its deployment location but does not download, deploy, or switch models. Cloud model availability and subagent support depend on the host.
+- **Run the main chat model locally.** The plugin asks you to confirm its deployment location but does not download, deploy, or switch models. Cloud analysis requires a local Codex CLI and a configured provider/model; see [configuration](configuration.md).
 
 Check your Node.js version in a terminal:
 
@@ -57,7 +59,8 @@ The list should contain `codex-local-privacy-router` with both `installed` and `
 
 1. Open plugin management in Codex desktop and import the downloaded `codex-local-privacy-router-<version>.zip` without extracting it.
 2. Find **Edge-Cloud Collaboration**, check its version, and enable it.
-3. Confirm that its skills, MCP service, and Hooks are enabled. Review and trust the Hooks when prompted, then **open a new chat**.
+3. Confirm that its skills, MCP service, and Hooks are enabled. Review and trust the Hooks when prompted.
+4. In the plugin detail page, fill in **Settings → Cloud model** and click **Apply settings**, then open a new chat. You can also configure the cloud model later; local detection does not require cloud settings.
 
 The ZIP includes the built interface and runtime files, ready for import.
 
@@ -140,6 +143,6 @@ Follow “Verify the installation” and open a new chat. If the old version sti
 | `codex plugin --help` is unavailable | Install or update to a Codex CLI with plugin commands, or use desktop ZIP import. |
 | Command-line installation on Windows reports a missing npm entry point | Repair the Codex npm installation, or add a working native `codex.exe` to PATH. |
 | The plugin appears in the list but has no effect in a new chat | Check that the plugin, skills, MCP service, and Hooks are enabled and that the Hooks are trusted. Restart the client and open a new chat. |
-| Installation succeeds, but cloud model selection or the comparison panel is unavailable | Check the host's subagent and MCP Apps support, then follow the [usage guide](./usage.md#troubleshooting). |
+| Installation succeeds, but cloud model selection or the comparison panel is unavailable | Check Codex CLI, cloud configuration, and the host's MCP Apps support, then follow the [usage guide](./usage.md#troubleshooting). |
 
 Follow the [usage guide](./usage.md) for your first task. Read [Privacy and data flow](./privacy.md) before using real material.

@@ -40,7 +40,7 @@ function status(text, kind = '') {
 }
 function controls() {
   const loaded = Boolean(state.data.review_id && has(state.data, 'sanitized_content'));
-  const stopped = ['rejected', 'revoked', 'handed_off'].includes(state.data.status);
+  const stopped = ['rejected', 'revoked', 'running', 'completed', 'failed'].includes(state.data.status);
   const confirmed = state.data.status === 'confirmed';
   $('#open-review').disabled = !loaded;
   $('#confirm').disabled = !loaded || !state.ready || state.busy || state.dirty || stopped || confirmed || !has(state.data, 'original_content');
@@ -88,6 +88,7 @@ function highlight(element, content, ranges) {
 }
 function render(data) {
   if (data.ok === false) { showError(data.error, data.validation); return; }
+  if (data.cloud_settings) { renderCloudSettings(data); return; }
   if (!data.review_id) return;
   if (state.data.review_id && data.review_id !== state.data.review_id) {
     state.data = {}; void closeReview(); state.dirty = false; state.editing = false; state.hydrated = false;
@@ -105,7 +106,7 @@ function render(data) {
   if (current.status === 'confirmed') status(t('已确认脱敏版本，等待主会话继续交接。'), 'success');
   else if (current.status === 'rejected') status(t('已拒绝，交接已停止。'));
   else if (current.status === 'revoked') status(t('授权已撤销，交接已停止。'));
-  else if (current.status === 'handed_off') status(t('脱敏材料已生成交接包。'), 'success');
+  else if (['running', 'completed', 'failed'].includes(current.status)) status(t('云端任务已提交，请在主会话查看结果。'), 'success');
   else if (state.dirty) status(t('内容已编辑，请重新扫描后确认。'));
   else status(t('请查看脱敏对照，再确认继续。'));
   controls();
@@ -143,6 +144,101 @@ function withTimeout(promise) {
     Promise.resolve(promise).then((value) => { clearTimeout(timer); resolve(value); }, (error) => { clearTimeout(timer); reject(error); });
   });
 }
+function cloudProviderMode() {
+  const custom = $('#cloud-provider-mode').value === 'custom';
+  $('#cloud-custom').hidden = !custom;
+  $('#cloud-openai-hint').hidden = custom;
+  for (const id of ['cloud-provider', 'cloud-base-url']) { $('#' + id).required = custom; $('#' + id).disabled = !custom; }
+  cloudCredentialHint();
+  scheduleHeight();
+}
+let cloudRevision, cloudConflict = false, cloudSaving = false, cloudCredential;
+function cloudCredentialHint() {
+  const custom = $('#cloud-provider-mode').value === 'custom';
+  const provider = custom ? $('#cloud-provider').value.trim() : 'openai';
+  const base = custom ? $('#cloud-base-url').value.trim().replace(/\/+$/, '') : '';
+  const retained = cloudCredential && provider === cloudCredential.provider && base === cloudCredential.base_url;
+  $('#cloud-api-key').required = custom && !retained;
+  $('#cloud-api-key').placeholder = retained ? t('已保存；留空保持不变') : t('粘贴 API Key');
+  $('#cloud-key-hint').textContent = retained
+    ? t('已保存凭据。留空继续使用，填写新 Key 后应用即可更换。')
+    : t('直接填写 Key，应用后保存在本机受限权限的配置文件中，不回显密钥。');
+}
+function cloudStatus(message, kind = '') {
+  $('#cloud-status').textContent = message;
+  $('#cloud-status').className = `status ${kind}`;
+  scheduleHeight();
+}
+function renderCloudSettings(data) {
+  if (data.response_language && !state.data.review_id) { state.data.response_language = data.response_language; applyLanguage(); }
+  const config = data.config || {};
+  $('#cloud-provider-mode').value = config.provider && config.provider !== 'openai' ? 'custom' : 'openai';
+  $('#cloud-provider').value = config.provider === 'openai' ? 'custom-cloud' : config.provider || 'custom-cloud';
+  $('#cloud-base-url').value = config.base_url || '';
+  $('#cloud-api-key').value = '';
+  cloudCredential = (data.api_key_saved || data.legacy_credential) && data.active_config
+    ? { provider: data.active_config.provider, base_url: (data.active_config.base_url || '').replace(/\/+$/, '') } : null;
+  $('#cloud-model').value = config.model || '';
+  $('#cloud-timeout').value = (config.timeout_ms || 180000) / 1000;
+  cloudRevision = data.config_revision;
+  cloudConflict = Boolean(data.conflict);
+  const active = data.active_config || (data.configured && !data.has_draft ? config : null);
+  $('#cloud-current').textContent = active ? `${t('当前生效：')}${active.provider} / ${active.model}` : t('尚未配置云端模型。填写后点击“应用配置”即可完成。');
+  $('#cloud-save').disabled = cloudConflict;
+  $('#cloud-settings').hidden = false;
+  $('#close-cloud-settings').hidden = !state.data.review_id;
+  document.body.classList.add('cloud-settings-open');
+  state.popup = false; syncPresentation();
+  cloudProviderMode();
+  cloudStatus(cloudConflict ? t('配置已在其他页面更新，请撤销更改后重新填写。') : data.has_draft ? t('已恢复未应用的草稿。点击“应用配置”后生效。') : data.configured ? t('已读取本机保存的云端配置。') : t('请先保存供应商和模型。'), cloudConflict ? 'error' : '');
+}
+async function loadCloudSettings(discard = false) {
+  if (cloudSaving) return;
+  cloudSaving = true;
+  $('#cloud-fields').disabled = true; $('#cloud-save').disabled = true; $('#cloud-reload').disabled = true;
+  cloudStatus(t('正在读取云端配置…'));
+  try {
+    if (discard) {
+      const reset = decode(await callTool('cloud_settings_reset', { response_language: state.data.response_language || 'en' }));
+      if (reset.ok === false) throw new Error(reset.error?.code);
+    }
+    const data = decode(await callTool('open_cloud_settings', { response_language: state.data.response_language || 'en' }));
+    if (data.ok === false) throw new Error(data.error?.code);
+    renderCloudSettings(data);
+  } catch { cloudStatus(t('无法读取配置，请检查本机配置文件或连接后重试。'), 'error'); }
+  finally { cloudSaving = false; $('#cloud-fields').disabled = false; $('#cloud-save').disabled = cloudConflict; $('#cloud-reload').disabled = false; }
+}
+$('#cloud-provider-mode').addEventListener('change', cloudProviderMode);
+$('#open-cloud-settings').addEventListener('click', () => void loadCloudSettings());
+$('#close-cloud-settings').addEventListener('click', () => { $('#cloud-settings').hidden = true; document.body.classList.remove('cloud-settings-open'); syncPresentation(); });
+$('#cloud-reload').addEventListener('click', () => void loadCloudSettings(true));
+$('#cloud-form').addEventListener('input', () => { cloudCredentialHint(); if (!cloudConflict) cloudStatus(t('更改尚未应用。点击“应用配置”后生效。')); });
+$('#cloud-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (cloudSaving || cloudConflict) return;
+  const custom = $('#cloud-provider-mode').value === 'custom';
+  const config = { provider: custom ? $('#cloud-provider').value.trim() : 'openai', model: $('#cloud-model').value.trim(),
+    base_url: custom ? $('#cloud-base-url').value.trim() : '', api_key: $('#cloud-api-key').value.trim(), timeout_ms: Math.round(Number($('#cloud-timeout').value) * 1000) };
+  if (custom) {
+    let url;
+    try { url = new URL(config.base_url); } catch { /* Report below. */ }
+    if (!url || url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+      cloudStatus(t('请填写不含密钥、查询参数或片段的 HTTPS 接口地址。'), 'error'); $('#cloud-base-url').focus(); return;
+    }
+  }
+  cloudSaving = true;
+  $('#cloud-fields').disabled = true; $('#cloud-save').disabled = true; $('#cloud-reload').disabled = true; $('#close-cloud-settings').disabled = true;
+  cloudStatus(t('正在应用配置…'));
+  try {
+    const data = decode(await callTool('save_cloud_settings', { config, expected_revision: cloudRevision, response_language: state.data.response_language || 'en' }));
+    if (data.ok === false) throw new Error(data.error?.code);
+    renderCloudSettings(data); cloudStatus(t('云端配置已保存，下次分析将使用此供应商和模型。'), 'success');
+  } catch (error) {
+    if (error.message === 'cloud_settings_conflict') cloudConflict = true;
+    cloudStatus(cloudConflict ? t('配置已在其他页面更新，请撤销更改后重新填写。') : t('保存失败，请检查供应商、模型、HTTPS 地址、API Key 和超时时间。'), 'error');
+  }
+  finally { cloudSaving = false; $('#cloud-fields').disabled = false; $('#cloud-save').disabled = cloudConflict; $('#cloud-reload').disabled = false; $('#close-cloud-settings').disabled = false; scheduleHeight(); }
+});
 async function hydrate() {
   state.hydrated = true;
   try { render(decode(await callTool('preview_redaction', { review_id: state.data.review_id, audience: 'main' }))); }
@@ -150,7 +246,7 @@ async function hydrate() {
 }
 function isExpanded() {
   // A host's explicit inline mode wins over any old fullscreen dimensions.
-  if (state.closed || state.hostMode === 'inline') return false;
+  if (!$('#cloud-settings').hidden || state.closed || state.hostMode === 'inline') return false;
   if (['fullscreen', 'pip'].includes(state.hostMode)) return true;
   return state.inferredExpanded;
 }
@@ -268,7 +364,7 @@ async function notifyMain() {
     } else throw new Error('context_unavailable');
     contextSaved = result?.isError !== true;
   } catch { /* Older hosts retain the review reference in the short message. */ }
-  const prompt = t('已确认脱敏内容，请交给子代理继续分析。') + (contextSaved ? '' : ' ' + t('（预览编号：{review_id}）').replace('{review_id}', state.data.review_id));
+  const prompt = t('已确认脱敏内容，请使用云端模型继续分析。') + (contextSaved ? '' : ' ' + t('（预览编号：{review_id}）').replace('{review_id}', state.data.review_id));
   try {
     let result;
     if (window.openai?.sendFollowUpMessage) result = await withTimeout(window.openai.sendFollowUpMessage({ prompt }));
@@ -276,7 +372,7 @@ async function notifyMain() {
     else throw new Error('message_unavailable');
     if (result?.isError) throw new Error('message_rejected');
     $('#continue').hidden = true;
-    status(t('已确认，已通知主会话交接给子代理。'), 'success');
+    status(t('已确认，已通知主会话调用云端模型。'), 'success');
   } catch {
     $('#continue').hidden = false;
     status(t('确认已保存，但未能通知主会话。可重试，或在主会话输入“继续已确认的脱敏任务”。'), 'error');

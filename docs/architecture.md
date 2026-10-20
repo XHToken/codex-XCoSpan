@@ -2,7 +2,7 @@
 
 [Home](../README.md) · [简体中文](zh-CN/architecture.md)
 
-The plugin consists of agent instructions, Hooks, a Node.js MCP server, and a confirmation UI. The main session interprets the task and calls the host's subagent tools. The MCP server handles detection, redaction state, and handoff validation; it does not launch cloud models itself.
+The plugin consists of agent instructions, Hooks, a Node.js MCP server, and a confirmation UI. The main session interprets the task. MCP manages detection, consent, saved cloud settings and asynchronous codex exec jobs.
 
 See the [usage guide](usage.md) for operating steps and [privacy and data flow](privacy.md) for deployment boundaries. The [routing protocol reference](../skills/privacy-routing/references/routing-policy.md) is the implementation reference for tool fields, offset rules, and call constraints.
 
@@ -16,7 +16,10 @@ See the [usage guide](usage.md) for operating steps and [privacy and data flow](
 | `mcp/server.mjs` | stdio MCP entry point, tool definitions, preview state, redaction revisions, authorization checks, and UI resources. |
 | `mcp/routing.mjs` | Routing decisions and format-based candidate matching; receives semantic assessments from the main session. |
 | `mcp/detection*.mjs` | Detection configuration, a worker thread for rules and enterprise dictionaries, and an optional model detection service. |
-| `mcp/subagent-policy.mjs` | Subagent role instructions shared by both cloud handoff paths. |
+| `mcp/subagent-policy.mjs` | Host subagent exemption for plugin hooks; cloud execution is in `cloud-exec.mjs`. |
+| `mcp/cloud-config.mjs` | Validate and atomically persist provider/model settings. |
+| `mcp/cloud-exec.mjs` | Isolated CLI invocation, timeout, output bounds and cleanup. |
+| `mcp/cloud-policy.mjs` | Instructions for public and sanitized cloud jobs. |
 | `shared/messages.mjs` | Language detection and UI text shared by MCP and the UI. |
 | `ui/src/`, `ui/review.template.html` | Confirmation UI source; built into `ui/contract-redaction-review.html`, which is loaded at runtime. |
 | `config/` | Synthetic detection configuration examples; actual enterprise configuration belongs outside the plugin directory. |
@@ -27,36 +30,23 @@ See the [usage guide](usage.md) for operating steps and [privacy and data flow](
 
 ```mermaid
 flowchart TD
-    U[User submits a task] --> H[Hook scans for local candidates]
-    H --> M["Main session interprets the task and sources<br/>Reads relevant unread material locally"]
-    M --> R{Assess complexity and sensitivity}
-    R -->|Simple task| L[Main session completes the task]
-    R -->|Complex and non-sensitive| N["Select a cloud model<br/>Prepare minimal non-sensitive context"]
-    R -->|Complex and sensitive| D[Detection and semantic redaction]
-    D --> V[Show original and redacted text side by side]
-    V -->|User edits| D
-    V -->|User confirms| A["Select a cloud model<br/>Validate authorization and create a redacted handoff package"]
-    V -->|Reject or revoke| S[Stop this handoff]
-    N --> C["Main session calls host tools<br/>Creates an analysis subagent without inherited history"]
-    A --> C
-    C --> F[Subagent returns evidence and uncertainties]
-    F --> E[Main session reviews and responds]
+    U[User task] --> R[Local semantic assessment]
+    R -->|Simple| L[Local result]
+    R -->|Complex non-sensitive| P[Exact assessed request]
+    R -->|Sensitive| D[Local redaction and human confirmation]
+    S[Plugin page: provider and model] --> C[Configuration-bound selection]
+    P --> E[MCP: codex exec]
+    D -->|Token and version verified| E
+    C --> E
+    E --> J[Poll job: completed or failed]
+    J --> F[Main session reviews and responds]
 ```
 
-For research using public sources, the main session can give the research objective directly to a subagent to search. Material that must be read first includes user-provided material relevant to the task, private content, and content of unknown origin. Respect an explicit user choice to process the task locally.
+The direct route stores exact assessed input in a 30-minute request handle; repeated submissions return the same job. The sensitive path validates the review, checked task, token, sanitized hash, detection policy and selected cloud configuration again after asynchronous detection before consuming consent. Only canonical sanitized text enters the CLI. Public jobs permit provider web search; sensitive jobs disable it.
 
-Default detection runs only local rules and dictionaries; semantic judgments come from the main session. When a separate detection endpoint is enabled, the detection module sends chunks of the original text to that endpoint. See [detection configuration](configuration.md) for the requirements.
+State: `awaiting_confirmation → confirmed → running → completed|failed`, with rejection/revocation before transmission. Running/completed versions cannot be reconfirmed. Failed sensitive jobs require new consent; retries never occur automatically. Preview/selection/request state is in memory for 30 minutes. Completed results remain for 30 minutes after completion. Restart loses this state. Saved provider/model configuration persists separately; each job snapshots it, and configuration changes invalidate unused selection handles.
 
-## State and authorization constraints
-
-The normal preview path is `awaiting_confirmation → confirmed → handed_off`; it can also enter `rejected` or `revoked`. Preserve these invariants during maintenance:
-
-- Previews and model selections are held only in the MCP process. Both expire after 30 minutes and are not restored after a restart.
-- Authorization is bound to the current redacted content and detection policy. Actual edits clear confirmation and the token; operations that leave content unchanged preserve authorization. Policy changes require a new preview.
-- Confirmation creates a single-use token. Handoff checks the revision, model selection, and authorization state after asynchronous detection, then consumes the token. `handed_off` means only that the package has been generated; the main session still creates the subagent and waits for its result.
-- Cloud model selection is independent of redaction confirmation. Multiple candidates require a user choice; if no suitable model is available, cloud analysis stops. Model capabilities and deployment information come from the host and user confirmation; the plugin cannot verify them independently.
-
-Rule detection and tool validation cannot prove that semantic redaction is complete. Host execution still depends on the main session following its instructions. See the [routing protocol implementation reference](../skills/privacy-routing/references/routing-policy.md) for call parameters, subagent roles, and forwarding boundaries.
+The CLI receives an argument array (`shell:false`) and payload through stdin. A temporary home excludes inherited plugins, MCP, history and user settings. Only required credentials are copied. Workers use `danger-full-access` with no approval prompts, enable shell tools and retain other built-in tool defaults; hooks, apps and multi-agent delegation are disabled. The temporary directory separates state but is not a filesystem/network boundary. Hosted search still depends on provider/model/runtime support; public workers may retrieve public sources through shell networking. Timeout kills the process group on POSIX; output is bounded, diagnostics suppressed, and temporary directories removed on completion. This does not control unrelated host tools or prove semantic redaction complete.
 
 ## Manifests and stable entry points
 

@@ -8,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageInfo = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const settingsDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'privacy-settings-smoke-'));
 const child = spawn(process.execPath, [path.join(root, 'mcp/server.mjs'), '--stdio'], {
   cwd: os.tmpdir(), stdio: ['pipe', 'pipe', 'pipe'],
+  env: { ...process.env, PRIVACY_ROUTER_CLOUD_CONFIG: path.join(settingsDirectory, 'cloud.json') },
 });
 const rl = readline.createInterface({ input: child.stdout });
 const pending = new Map();
@@ -62,13 +64,27 @@ try {
   });
   assert.equal(initialized.serverInfo.name, packageInfo.name, 'MCP name must match package.json');
   assert.equal(initialized.serverInfo.version, packageInfo.version, 'MCP version must match package.json');
+  assert.deepEqual(initialized.capabilities.extensions?.['openai/settings'], { readTool: 'cloud_settings_read', updateTool: 'cloud_settings_update' });
   write({ method: 'notifications/initialized' });
 
   const { tools } = await call('tools/list');
   assert.ok(Array.isArray(tools), 'tools/list must return a tools array');
-  for (const name of ['check_model', 'route_request', 'select_subagent_model', 'detect_sensitive_content', 'create_redaction_review', 'preview_redaction', 'confirm_redaction', 'revoke_redaction', 'handoff_to_subagent']) {
+  for (const name of ['check_model', 'route_request', 'select_cloud_model', 'detect_sensitive_content', 'create_redaction_review', 'preview_redaction', 'confirm_redaction', 'revoke_redaction', 'run_cloud_analysis']) {
     assert.ok(tools.some((tool) => tool.name === name), `Missing core tool: ${name}`);
   }
+  assert.equal(tools.find(tool => tool.name === 'open_cloud_settings')._meta['openai/ui'].entrypoints[0].type, 'settings');
+  const settingsCall = async (name, args = {}) => {
+    const result = await call('tools/call', { name, arguments: args });
+    assert.equal(result.isError, false, `Settings tool failed: ${name}`);
+    return result.structuredContent;
+  };
+  const initialSettings = await settingsCall('cloud_settings_read');
+  assert.equal(initialSettings.configured, false);
+  assert.equal(initialSettings.schema.properties.model.type, 'string');
+  await settingsCall('cloud_settings_update', { set: { model: 'synthetic-package-model' } });
+  assert.equal(fs.existsSync(path.join(settingsDirectory, 'cloud.json')), false);
+  await settingsCall('cloud_settings_apply');
+  assert.equal((await settingsCall('open_cloud_settings')).active_config.model, 'synthetic-package-model');
   const uri = tools.find((tool) => tool.name === 'create_redaction_review')._meta?.ui?.resourceUri;
   assert.ok(typeof uri === 'string' && uri.startsWith('ui://'), 'Review tool must reference its UI resource');
   const { resources } = await call('resources/list');
@@ -89,4 +105,5 @@ try {
   rl.close();
   child.stdin.end();
   child.kill('SIGKILL');
+  fs.rmSync(settingsDirectory, { recursive: true, force: true });
 }

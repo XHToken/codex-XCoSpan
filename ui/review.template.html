@@ -61,6 +61,22 @@
     [hidden] { display: none !important; }
     @media (max-width: 680px) { #bottom-bar { padding: 10px 12px; } dialog { inset: 8px 8px calc(var(--footer-height, 180px) + 8px); width: calc(100vw - 16px); height: calc(100dvh - var(--footer-height, 180px) - 16px); border-radius: 12px; } .modal-header { padding: 12px 16px; } .compare { padding: 0 16px 16px; gap: 12px; } .panel-header { padding: 10px 12px; } .actions { gap: 7px; } button { font-size: 12px; padding: 8px 10px; } #bottom-bar .chips { gap: 8px 14px; } .chip { flex-shrink: 0; } #bottom-bar .summary > div { min-width: 0; } }
     @media (max-height: 480px) { #bottom-bar { padding: 8px 12px; } #bottom-bar .summary { padding: 8px 12px; } #bottom-bar .hint { display: none; } #bottom-bar .chips { margin-top: 4px; } .modal-header { padding: 10px 16px; } .modal-header .hint { margin-top: 3px; } .compare { padding-bottom: 12px; } }
+    #cloud-settings { margin: 12px auto; max-width: 760px; border: 1px solid #e0e6e3; border-radius: 16px; padding: clamp(16px, 4vw, 32px); }
+    #cloud-settings h2 { margin: 0 0 8px; font-size: 22px; }
+    #cloud-current { padding: 12px 14px; background: #f0fbf7; border-radius: 8px; overflow-wrap: anywhere; }
+    body.cloud-settings-open #bottom-bar > .summary, body.cloud-settings-open #bottom-bar > .actions { display: none; }
+    #cloud-form { display: grid; gap: 18px; margin-top: 20px; }
+    #cloud-fields { display: grid; gap: 18px; border: 0; padding: 0; margin: 0; min-width: 0; }
+    #cloud-fields:disabled { opacity: .65; }
+    #cloud-form label { display: grid; gap: 5px; font-size: 13px; }
+    #cloud-form input, #cloud-form select { padding: 9px; width: 100%; min-width: 0; border: 1px solid #ccd7d1; border-radius: 6px; font: inherit; }
+    #cloud-form input:focus-visible, #cloud-form select:focus-visible { outline: 3px solid #a2dccc; outline-offset: 2px; }
+    #cloud-form small { font-size: 12px; line-height: 1.6; color: #65746c; }
+    #cloud-form .cloud-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+    #cloud-settings .status { margin: 0; }
+    #close-cloud-settings { margin-top: 12px; }
+    #cloud-custom { display: grid; gap: 12px; }
+    #cloud-settings .cloud-hint { font-size: 13px; line-height: 1.6; color: #65746c; margin: 0; }
   </style>
 </head>
 <body>
@@ -69,7 +85,29 @@
     <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6z"/><path d="m8 12 3 3 5-6"/></svg>
     <div><h2><span class="count" data-count>—</span><span data-summary-title data-i18n="等待脱敏扫描">等待脱敏扫描</span></h2><p class="hint" data-i18n="原始内容留在本机，仅交接你确认的脱敏版本。">原始内容留在本机，仅交接你确认的脱敏版本。</p><div class="chips" data-chips data-i18n="正在获取替换统计…">正在获取替换统计…</div></div>
   </section>
-    <div class="actions"><button id="open-review" class="secondary" disabled data-i18n="查看脱敏对照">查看脱敏对照</button><button id="confirm" class="primary" disabled data-i18n="确认并继续">确认并继续</button><button id="reject" class="danger" disabled data-i18n="拒绝并停止">拒绝并停止</button><button id="repreview" class="secondary" disabled data-i18n="脱敏选中内容">脱敏选中内容</button><button id="continue" class="primary" hidden data-i18n="通知主会话继续">通知主会话继续</button><span id="status" class="status" role="status" aria-live="polite" data-i18n="正在连接预览…">正在连接预览…</span></div>
+    <div class="actions"><button id="open-review" class="secondary" disabled data-i18n="查看脱敏对照">查看脱敏对照</button><button id="open-cloud-settings" class="secondary" data-i18n="云端模型设置">云端模型设置</button><button id="confirm" class="primary" disabled data-i18n="确认并继续">确认并继续</button><button id="reject" class="danger" disabled data-i18n="拒绝并停止">拒绝并停止</button><button id="repreview" class="secondary" disabled data-i18n="脱敏选中内容">脱敏选中内容</button><button id="continue" class="primary" hidden data-i18n="通知主会话继续">通知主会话继续</button><span id="status" class="status" role="status" aria-live="polite" data-i18n="正在连接预览…">正在连接预览…</span></div>
+    <section id="cloud-settings" hidden>
+      <h2 data-i18n="云端模型设置">云端模型设置</h2>
+      <p class="cloud-hint" data-i18n="选择云端分析使用的模型。配置保存在本机，插件升级后仍会保留。">选择云端分析使用的模型。配置保存在本机，插件升级后仍会保留。</p>
+      <button id="close-cloud-settings" type="button" data-i18n="返回脱敏对照">返回脱敏对照</button>
+      <form id="cloud-form">
+        <p id="cloud-current" class="cloud-hint"></p>
+        <fieldset id="cloud-fields">
+        <label><span data-i18n="供应商类型">供应商类型</span><select id="cloud-provider-mode"><option value="openai">OpenAI / ChatGPT</option><option value="custom" data-i18n="自定义供应商（Responses API）">自定义供应商（Responses API）</option></select></label>
+        <div id="cloud-custom" hidden>
+          <label><span data-i18n="供应商 ID">供应商 ID</span><input id="cloud-provider" maxlength="64" placeholder="my-provider" pattern="[a-zA-Z][a-zA-Z0-9_-]{0,63}"></label>
+          <label><span data-i18n="接口地址（HTTPS）">接口地址（HTTPS）</span><input id="cloud-base-url" type="url" maxlength="2048" placeholder="https://api.example.com/v1" aria-describedby="cloud-api-hint"><small id="cloud-api-hint" data-i18n="使用兼容 Responses API 的 HTTPS 接口。">使用兼容 Responses API 的 HTTPS 接口。</small></label>
+        </div>
+        <label><span>API Key</span><input id="cloud-api-key" type="password" maxlength="4096" autocomplete="new-password" spellcheck="false" autocapitalize="off" aria-describedby="cloud-key-hint"><small id="cloud-key-hint"></small></label>
+        <label><span data-i18n="模型 ID">模型 ID</span><input id="cloud-model" required maxlength="200" autocomplete="off" aria-describedby="cloud-model-hint"><small id="cloud-model-hint" data-i18n="填写你的账号实际可用的完整模型 ID。">填写你的账号实际可用的完整模型 ID。</small></label>
+        <label><span data-i18n="超时时间（秒）">超时时间（秒）</span><input id="cloud-timeout" type="number" min="1" max="600" step="0.001" value="180" required></label>
+        <p id="cloud-openai-hint" class="cloud-hint" data-i18n="OpenAI 可直接填写 API Key；留空时使用已有密钥或 Codex 登录凭据。">OpenAI 可直接填写 API Key；留空时使用已有密钥或 Codex 登录凭据。</p>
+        </fieldset>
+        <p class="cloud-hint" data-i18n="应用配置不会发送推理请求。模型和鉴权将在首次云端任务时验证。">应用配置不会发送推理请求。模型和鉴权将在首次云端任务时验证。</p>
+        <div class="cloud-buttons"><button id="cloud-save" type="submit" class="primary" data-i18n="应用配置">应用配置</button> <button id="cloud-reload" type="button" data-i18n="撤销更改">撤销更改</button></div>
+        <p id="cloud-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
   </footer>
   <div id="review-backdrop" hidden aria-hidden="true"></div>
   <dialog id="review" aria-labelledby="review-title">

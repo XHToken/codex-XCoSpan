@@ -64,3 +64,7 @@ Keep the installation ID, existing entry paths, and UI resource URI stable. If t
 ## Pull requests
 
 Describe the problem, resulting behavior, validation, and any compatibility or privacy implications. New external calls or cloud paths must preserve the documented data boundary and sensitive-content approval flow. For larger changes, discuss the design in an issue first. Documentation-only changes do not require browser tests.
+
+## Cloud execution checks
+
+`npm test` uses an isolated fake CLI and synthetic credentials for cloud execution, authorization, failures and settings UI tests. Run `npm run check:cloud-cli` with a local Codex CLI to verify the real Responses request, selected model, built-in tool exposure, shell execution, loopback networking, writes outside the worker directory and tool-result round trips against a synthetic local service. This check does not call a cloud provider. The CLI integration was verified with `codex-cli 0.162.1`; repeat it when upgrading the CLI because feature gates can change.

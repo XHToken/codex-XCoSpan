@@ -1,3 +1,4 @@
+import { cloudFixture } from './helpers/cloud-fixture.mjs';
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
@@ -18,7 +19,8 @@ const simpleTask = { complexity: "simple", sensitivity: "low", data_scope: "none
 
 
 function rpcSession() {
-  const child = spawn(process.execPath, [SERVER, "--stdio"], { cwd: ROOT, stdio: ["pipe", "pipe", "pipe"] });
+  const fixture = cloudFixture();
+  const child = spawn(process.execPath, [SERVER, "--stdio"], { env: fixture.env, cwd: ROOT, stdio: ["pipe", "pipe", "pipe"] });
   let buffer = "";
   const pending = new Map();
   child.stdout.setEncoding("utf8");
@@ -36,17 +38,21 @@ function rpcSession() {
   });
   let id = 0;
   return {
-    call(method, params = {}) {
+    async call(method, params = {}) {
+      if (params.name === "run_cloud_analysis" && params.arguments.review_id && !params.arguments.expected_sanitized_sha256) {
+        const preview = await this.call("tools/call", { name: "preview_redaction", arguments: { review_id: params.arguments.review_id, audience: "main" } });
+        params.arguments.expected_sanitized_sha256 = preview.result.structuredContent.sanitized_sha256;
+      }
       const requestId = ++id;
       child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params })}\n`);
       return new Promise((resolve) => pending.set(requestId, resolve));
     },
-    close() { child.kill(); },
+    close() { child.kill(); child.once("exit", () => fixture.close()); },
   };
 }
 
 async function selectTestModel(session) {
-  const result = await session.call("tools/call", { name: "select_subagent_model", arguments: { available_models: ["gpt-6-astra"], large_model_ids: ["gpt-6-astra"] } });
+  const result = await session.call("tools/call", { name: "select_cloud_model", arguments: { available_models: ["gpt-6-astra"], large_model_ids: ["gpt-6-astra"] } });
   assert.equal(result.result.structuredContent.selection_required, false);
   return result.result.structuredContent.model_selection_id;
 }
@@ -60,8 +66,8 @@ test("MCP initializes and advertises routing/redaction tools and UI resource", a
     assert.equal(init.result.serverInfo.name, "codex-local-privacy-router");
     const tools = await session.call("tools/list");
     assert.ok(tools.result.tools.some((tool) => tool.name === "route_request"));
-    assert.ok(tools.result.tools.some((tool) => tool.name === "handoff_to_subagent"));
-    assert.ok(tools.result.tools.some((tool) => tool.name === "select_subagent_model"));
+    assert.ok(tools.result.tools.some((tool) => tool.name === "run_cloud_analysis"));
+    assert.ok(tools.result.tools.some((tool) => tool.name === "select_cloud_model"));
     for (const name of ["preview_redaction", "confirm_redaction"]) {
       const tool = tools.result.tools.find((item) => item.name === name);
       assert.ok(tool._meta.ui.visibility.includes("app"));
@@ -160,52 +166,6 @@ test("multi-block masks require an explicit scope and can be narrowed against th
   } finally { session.close(); }
 });
 
-test("multiple cloud large models wait for an explicit choice and exclude lightweight models", async () => {
-  const session = rpcSession();
-  const call = async (args) => (await session.call("tools/call", { name: "select_subagent_model", arguments: args })).result.structuredContent;
-  try {
-    const available_models = ["gpt-5.6-luna", "gpt-6.1-sol", "gpt-6-astra"];
-    const large_model_ids = ["gpt-6.1-sol", "gpt-6-astra"];
-    for (const args of [
-      { available_models },
-      { available_models, selected_model: "gpt-6-astra" },
-      { available_models, user_confirmed_selection: true },
-      { available_models, selected_model: "gpt-6.1-sol", user_confirmed_selection: false },
-    ]) {
-      const pending = await call({ ...args, large_model_ids });
-      assert.equal(pending.selection_required, true);
-      assert.deepEqual(pending.available_models, large_model_ids);
-      assert.equal(pending.spawn_parameters, undefined);
-      assert.equal(pending.model_selection_id, undefined);
-    }
-    const selected = await call({ available_models, large_model_ids, selected_model: "gpt-6-astra", user_confirmed_selection: true });
-    assert.equal(selected.selection_required, false);
-    assert.ok(selected.model_selection_id);
-    assert.deepEqual(selected.spawn_parameters, { model: "gpt-6-astra", fork_turns: "none" });
-    const only = await call({ available_models: ["gpt-5.6-luna", "gpt-6.1-sol", "gpt-6.1-sol"], large_model_ids: ["gpt-6.1-sol"] });
-    assert.equal(only.selection_required, false);
-    assert.equal(only.selected_model, "gpt-6.1-sol");
-    assert.equal((await call({ available_models, large_model_ids, selected_model: "unavailable", user_confirmed_selection: true })).error.code, "model_unavailable");
-    assert.equal((await call({ available_models, large_model_ids, selected_model: "gpt-5.6-luna", user_confirmed_selection: true })).error.code, "cloud_large_model_required");
-    assert.equal((await call({ available_models })).error.code, "large_model_classification_required");
-    assert.equal((await call({ available_models, large_model_ids: ["unavailable"] })).error.code, "large_model_classification_required");
-    assert.equal((await call({ available_models, large_model_ids: [] })).error.code, "no_cloud_large_model");
-    // Synthetic IDs deliberately vary their names independently of host capabilities.
-    for (const model of ["vendor-flash-large", "vendor-mini-reasoner", "vendor-luna-pro", "new-family-v99"]) {
-      assert.equal((await call({ available_models: [model], large_model_ids: [model] })).selected_model, model);
-      assert.equal((await call({ available_models: [model], large_model_ids: [] })).error.code, "no_cloud_large_model");
-    }
-    const pro = await call({ available_models: ["gemini-2.5-pro"], large_model_ids: ["gemini-2.5-pro"] });
-    assert.equal(pro.selected_model, "gemini-2.5-pro");
-    for (const available_models of [undefined, []]) {
-      assert.equal((await call({ available_models })).error.code, "available_models_required");
-    }
-    for (const available_models of [[""], [null], ["unknown"], ["default"], ["cloud"]]) {
-      assert.equal((await call({ available_models })).error.code, "invalid_available_models");
-    }
-  } finally { session.close(); }
-});
-
 test("every complex route requires model resolution and never prescribes the host default", async () => {
   const session = rpcSession();
   const call = async (name, args) => (await session.call("tools/call", { name, arguments: args })).result.structuredContent;
@@ -214,19 +174,19 @@ test("every complex route requires model resolution and never prescribes the hos
     for (const sensitivity of ["low", "high"]) {
       const routed = await call("route_request", { model: "unknown", prompt: "Analyze", ...publicComplex, sensitivity });
       assert.equal(routed.subagent_model, undefined);
-      assert.equal(routed.subagent_model_policy.tool, "select_subagent_model");
-      assert.equal(routed.subagent_model_policy.multiple_models, "wait_for_user_selection");
-      assert.equal(routed.subagent_model_policy.cloud_large_models_only, true);
+      assert.equal(routed.cloud_model_policy.tool, "select_cloud_model");
+      assert.equal(routed.cloud_model_policy.settings_tool, "open_cloud_settings");
+      assert.equal(routed.cloud_model_policy.execution, "codex exec");
     }
     await call("confirm_redaction", { review_id: review.review_id, audience: "main", confirmed: true });
     const resumed = await call("route_request", { model: "unknown", prompt: contract, complexity: "complex", review_id: review.review_id });
-    assert.equal(resumed.route, "subagent_after_confirmation");
-    assert.equal(resumed.subagent_model_policy.explicit_spawn_model_required, true);
+    assert.equal(resumed.route, "cloud_after_confirmation");
+    assert.equal(resumed.cloud_model_policy.execution, "codex exec");
     const local = await call("route_request", { model: "unknown", prompt: "hello", ...simpleTask });
     assert.equal(local.route, "local");
-    assert.equal(local.subagent_model_policy, undefined);
+    assert.equal(local.cloud_model_policy, undefined);
     const localData = await call("route_request", { model: "unknown", prompt: "Analyze the attached dataset", ...publicComplex, data_scope: "private", assessment_reason: "The locally supplied dataset has been read and contains only non-sensitive measurements.", contains_local_data: true });
-    assert.equal(localData.route, "subagent");
+    assert.equal(localData.route, "cloud_exec");
     assert.equal(localData.review_id, undefined);
   } finally { session.close(); }
 });
@@ -237,8 +197,8 @@ test("explicit semantic judgments preserve local, direct-cloud and sensitive-clo
     const cases = [
       ["你好", "local", simpleTask],
       ["电话：13800138000", "local", { ...simpleTask, sensitivity: "high", data_scope: "private" }],
-      ["比较多个代码库的架构，逐项分析重构方案", "subagent", publicComplex],
-      ["分析附件文件，比较多个代码库的架构，逐项提出重构方案", "subagent", publicComplex],
+      ["比较多个代码库的架构，逐项分析重构方案", "cloud_exec", publicComplex],
+      ["分析附件文件，比较多个代码库的架构，逐项提出重构方案", "cloud_exec", publicComplex],
       [contract, "redaction_required", privateComplex],
     ];
     for (const [prompt, expected, assessment] of cases) {
@@ -247,8 +207,8 @@ test("explicit semantic judgments preserve local, direct-cloud and sensitive-clo
       assert.equal(result.route, expected, prompt);
       assert.equal(result.review_id, undefined);
       assert.equal(result.handoff_token, undefined);
-      if (expected === "local") assert.equal(result.subagent_model_policy, undefined);
-      if (expected === "subagent") assert.match(result.next_step, /no redaction review, confirmation or handoff token is needed/);
+      if (expected === "local") assert.equal(result.cloud_model_policy, undefined);
+      if (expected === "cloud_exec") assert.match(result.next_step, /No redaction consent is required/);
     }
     // An incomplete low declaration cannot clear material for cloud analysis.
     const detected = await session.call("tools/call", { name: "route_request", arguments: { model: "unknown", prompt: contract, complexity: "complex", sensitivity: "low" } });
@@ -262,21 +222,17 @@ test("model selection gates handoff without consuming consent and returns analys
   try {
     const review = await call("create_redaction_review", { model: "unknown", audience: "main", content: contract });
     const confirmed = await call("confirm_redaction", { review_id: review.review_id, audience: "main", confirmed: true });
-    const args = { review_id: review.review_id, handoff_token: confirmed.handoff_token, audience: "subagent", model: "gpt-6-astra" };
-    assert.equal((await call("handoff_to_subagent", args)).error.code, "model_selection_required");
-    assert.equal((await call("handoff_to_subagent", { ...args, model_selection_id: "model_forged" })).error.code, "model_selection_required");
-    const selection = await call("select_subagent_model", { available_models: ["gpt-5.6-luna", "gpt-6-astra"], large_model_ids: ["gpt-6-astra"], selected_model: "gpt-6-astra", user_confirmed_selection: true });
-    assert.equal((await call("handoff_to_subagent", { ...args, model: "gpt-5.6-luna", model_selection_id: selection.model_selection_id })).error.code, "model_selection_mismatch");
+    const args = { review_id: review.review_id, handoff_token: confirmed.handoff_token, audience: "main", model: "gpt-6-astra" };
+    assert.equal((await call("run_cloud_analysis", args)).error.code, "model_selection_required");
+    assert.equal((await call("run_cloud_analysis", { ...args, model_selection_id: "model_forged" })).error.code, "model_selection_required");
+    const selection = await call("select_cloud_model", {});
     const unchanged = await call("preview_redaction", { review_id: review.review_id, audience: "main" });
-    assert.equal(unchanged.status, "confirmed");
     assert.equal(unchanged.handoff_token, confirmed.handoff_token);
-    const choice = await call("select_subagent_model", { available_models: ["gpt-5.6-luna", "gpt-6-astra"], large_model_ids: ["gpt-6-astra"], selected_model: "gpt-5.6-luna", user_confirmed_selection: true });
-    assert.equal(choice.error.code, "cloud_large_model_required");
-    const accepted = await call("handoff_to_subagent", { ...args, model_selection_id: selection.model_selection_id });
-    assert.equal(accepted.status, "handed_off");
-    assert.deepEqual(accepted.spawn_parameters, { model: "gpt-6-astra", fork_turns: "none" });
-    assert.equal(accepted.subagent_payload.spawn_parameters, undefined);
-    assert.match(accepted.subagent_payload.subagent_instructions, /return findings, evidence, and uncertainties to the local model in the main session/);
+    const accepted = await call("run_cloud_analysis", { ...args, model_selection_id: selection.model_selection_id });
+    assert.equal(accepted.status, "running");
+    assert.equal(accepted.model, "test-large");
+    assert.equal(accepted.spawn_parameters, undefined);
+    assert.match((await cloudPayload(session, accepted)).instructions, /Return findings, evidence and uncertainties to the local main session/);
   } finally { session.close(); }
 });
 
@@ -295,7 +251,7 @@ test("deployment confirmation is independent of model names and capability", asy
       assert.equal(confirmedCheck.result.structuredContent.is_small_model, null);
       assert.equal(confirmedCheck.result.structuredContent.user_confirmed_small_model, true);
       assert.equal(confirmedCheck.result.structuredContent.model_confirmation_required, false);
-      for (const [prompt, complexity, route] of [["hello", "simple", "local"], ["review code", "complex", "subagent"], [contract, "complex", "redaction_required"]]) {
+      for (const [prompt, complexity, route] of [["hello", "simple", "local"], ["review code", "complex", "cloud_exec"], [contract, "complex", "redaction_required"]]) {
         const routed = await session.call("tools/call", { name: "route_request", arguments: { model, prompt, ...(route === "redaction_required" ? privateComplex : publicComplex), complexity, user_confirmed_small_model: true } });
         assert.equal(routed.result.structuredContent.route, route);
         assert.equal(routed.result.structuredContent.model_confirmation_required, false);
@@ -322,11 +278,11 @@ test("missing semantic assessment never treats absent patterns or unfamiliar tas
       assert.equal(result.route, "assessment_required");
       assert.equal(result.complexity.level, "unknown");
       assert.equal(result.sensitivity.level, "unknown");
-      assert.equal(result.subagent_instructions, undefined);
-      assert.equal(result.subagent_model_policy, undefined);
+      assert.equal(result.cloud_instructions, undefined);
+      assert.equal(result.cloud_model_policy, undefined);
     }
     const prompt = "设计一套跨区域容灾策略，推演恢复与成本权衡";
-    assert.equal((await route({ prompt, ...publicComplex })).route, "subagent");
+    assert.equal((await route({ prompt, ...publicComplex })).route, "cloud_exec");
     for (const key of ["complexity", "sensitivity", "data_scope", "assessment_reason"]) {
       const args = { prompt, ...publicComplex }; delete args[key];
       assert.equal((await route(args)).route, "assessment_required", key);
@@ -334,7 +290,7 @@ test("missing semantic assessment never treats absent patterns or unfamiliar tas
     assert.equal((await route({ prompt, ...publicComplex, assessment_reason: " " })).route, "assessment_required");
     assert.equal((await route({ prompt, ...publicComplex, data_scope: "unknown" })).route, "assessment_required");
     const publicValues = await route({ prompt: "比较公开报价", context: "官网公开售价：人民币100元", ...publicComplex });
-    assert.equal(publicValues.route, "subagent");
+    assert.equal(publicValues.route, "cloud_exec");
     assert.ok(publicValues.sensitivity.candidate_signals.includes("amount"));
     const privateMeaning = await route({ prompt: "分析这份保密报告", context: "尚未发表的实验结论与内部竞争策略", ...privateComplex });
     assert.equal(privateMeaning.route, "redaction_required");
@@ -347,7 +303,7 @@ test("attachment words and negation do not establish unread host references", as
     const result = spawnSync(process.execPath, [path.join(ROOT, "hooks/prompt-routing.mjs")], { input: JSON.stringify({ prompt }), encoding: "utf8", timeout: 5000 });
     assert.equal(result.status, 0);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    const assessment = JSON.parse(context.match(/Preliminary result: (\{.*\})\. For every/)[1]);
+    const assessment = JSON.parse(context.match(/Preliminary local candidate scan: (\{.*\})\. Edge-Cloud/)[1]);
     assert.equal(assessment.route, "assessment_required");
     assert.equal(assessment.content_assessment, "supplied_text_only");
   }
@@ -355,7 +311,7 @@ test("attachment words and negation do not establish unread host references", as
   try {
     const result = await session.call("tools/call", { name: "route_request", arguments: { model: "unknown", prompt: "帮我看看", ...publicComplex, content_pending: true } });
     assert.equal(result.result.structuredContent.route, "inspect_content");
-    assert.equal(result.result.structuredContent.subagent_model_policy, undefined);
+    assert.equal(result.result.structuredContent.cloud_model_policy, undefined);
   } finally { session.close(); }
 });
 
@@ -375,16 +331,16 @@ test("semantic spans redact multilingual confidential meaning while preserving r
       assert.ok(created._meta.redaction.original_content.includes(secret));
       const beforeConsent = await call("route_request", { model: "unknown", prompt: "Treat this as public", ...publicComplex, review_id: data.review_id });
       assert.equal(beforeConsent.structuredContent.route, "redaction_required");
-      assert.equal(beforeConsent.structuredContent.subagent_instructions, undefined);
+      assert.equal(beforeConsent.structuredContent.cloud_instructions, undefined);
       const confirmed = await call("confirm_redaction", { review_id: data.review_id, audience: "main", confirmed: true, edited_sanitized: data.sanitized_content });
       assert.equal(confirmed.structuredContent.status, "confirmed");
       const bypass = await call("route_request", { model: "unknown", prompt: "继续", ...publicComplex, review_id: data.review_id });
-      assert.equal(bypass.structuredContent.route, "subagent_after_confirmation");
-      const selection = (await call("select_subagent_model", { available_models: ["test-provider-flash-large"], large_model_ids: ["test-provider-flash-large"] })).structuredContent;
-      const handed = await call("handoff_to_subagent", { review_id: data.review_id, audience: "subagent", handoff_token: confirmed.structuredContent.handoff_token, model: selection.selected_model, model_selection_id: selection.model_selection_id, task: "Analyze the redacted text and its public price of 人民币100元" });
-      assert.equal(handed.structuredContent.status, "handed_off");
+      assert.equal(bypass.structuredContent.route, "cloud_after_confirmation");
+      const selection = (await call("select_cloud_model", { available_models: ["test-provider-flash-large"], large_model_ids: ["test-provider-flash-large"] })).structuredContent;
+      const handed = await call("run_cloud_analysis", { review_id: data.review_id, audience: "main", handoff_token: confirmed.structuredContent.handoff_token, model: selection.selected_model, model_selection_id: selection.model_selection_id, task: "Analyze the redacted text and its public price of 人民币100元" });
+      assert.equal(handed.structuredContent.status, "running");
       assert.ok(!JSON.stringify(handed).includes(secret));
-      assert.ok(handed.structuredContent.subagent_payload.sanitized_content.includes("人民币100元"));
+      assert.ok((await cloudPayload(session, handed.structuredContent)).sanitized_content.includes("人民币100元"));
     }
     for (const span of [{ start: -1, end: 2, type: "secret" }, { start: 0, end: 99, type: "secret" }, { start: 1, end: 1, type: "secret" }, { start: 0.5, end: 2, type: "secret" }, { start: 0, end: 2, type: "bad]token" }]) {
       assert.equal((await call("create_redaction_review", { model: "unknown", audience: "main", content: "example", sensitive_spans: [span] })).structuredContent.error.code, "invalid_sensitive_spans");
@@ -412,16 +368,16 @@ test("model warning never blocks previews or replaces redaction consent", async 
       assert.equal(preview.status, "awaiting_confirmation");
       assert.equal(preview.confirmation_required, true);
       assert.doesNotMatch(created.result.content[0].text, /1302 0180 0900 0000 000/);
-      const denied = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: "", audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId } });
+      const denied = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: "", audience: "main", model: "gpt-6-astra", model_selection_id: selectionId } });
       assert.equal(denied.result.structuredContent.error.code, "confirmation_required");
       const confirmed = await session.call("tools/call", { name: "confirm_redaction", arguments: { review_id: preview.review_id, audience: "main", confirmed: true } });
       const routed = await session.call("tools/call", { name: "route_request", arguments: { model: "unknown", user_confirmed_small_model: userConfirmed, prompt: contract, review_id: preview.review_id } });
-      assert.equal(routed.result.structuredContent.route, "subagent_after_confirmation");
+      assert.equal(routed.result.structuredContent.route, "cloud_after_confirmation");
       assert.equal(routed.result.structuredContent.model_confirmation_required, !userConfirmed);
-      const handoff = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: confirmed.result.structuredContent.handoff_token, audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId } });
-      assert.equal(handoff.result.structuredContent.status, "handed_off");
-      assert.equal(handoff.result.structuredContent.subagent_payload.task, "Analyze the sanitized material and return evidence-based findings.");
-      assert.equal(handoff.result.structuredContent.subagent_payload.sanitized_content, preview.sanitized_content);
+      const handoff = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: confirmed.result.structuredContent.handoff_token, audience: "main", model: "gpt-6-astra", model_selection_id: selectionId } });
+      assert.equal(handoff.result.structuredContent.status, "running");
+      assert.equal((await cloudPayload(session, handoff.result.structuredContent)).task, "Analyze the sanitized material and return evidence-based findings.");
+      assert.equal((await cloudPayload(session, handoff.result.structuredContent)).sanitized_content, preview.sanitized_content);
     }
   } finally { session.close(); }
 });
@@ -440,7 +396,7 @@ test("stable redaction, confirmation gate, and one-time sanitized handoff", asyn
     assert.equal(preview.original_content, undefined);
     assert.doesNotMatch(created.result.content[0].text, /1302 0180 0900 0000 000/);
     assert.doesNotMatch(created.result.structuredContent.changes?.[0]?.original || "", /科大讯飞/);
-    const denied = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: "bad", audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId, task: "review" } });
+    const denied = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: "bad", audience: "main", model: "gpt-6-astra", model_selection_id: selectionId, task: "review" } });
     assert.equal(denied.result.structuredContent.ok, false);
     const editedWithNewSecret = await session.call("tools/call", { name: "confirm_redaction", arguments: { review_id: preview.review_id, audience: "main", confirmed: true, edited_sanitized: `${preview.sanitized_content}\n新增账号：6222020202020202020` } });
     assert.equal(editedWithNewSecret.result.structuredContent.ok, false);
@@ -451,30 +407,28 @@ test("stable redaction, confirmation gate, and one-time sanitized handoff", asyn
     const confirmed = await session.call("tools/call", { name: "confirm_redaction", arguments: { review_id: preview.review_id, audience: "main", confirmed: true } });
     const token = confirmed.result.structuredContent.handoff_token;
     assert.ok(token);
-    const missingModel = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: token, audience: "subagent", task: "审核合同" } });
-    assert.equal(missingModel.result.structuredContent.error.code, "model_required");
-    const leakedTask = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: token, audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId, task: "分析账号：1302 0180 0900 0000 000" } });
+    const missingModel = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: token, audience: "main", task: "审核合同" } });
+    assert.equal(missingModel.result.structuredContent.error.code, "model_selection_required");
+    const leakedTask = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: token, audience: "main", model: "gpt-6-astra", model_selection_id: selectionId, task: "分析账号：1302 0180 0900 0000 000" } });
     assert.equal(leakedTask.result.structuredContent.error.code, "sensitive_value_detected");
-    const handoff = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: token, audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId, task: "审核付款、发票和违约条款" } });
+    const handoff = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: token, audience: "main", model: "gpt-6-astra", model_selection_id: selectionId, task: "审核付款、发票和违约条款" } });
     const payload = handoff.result.structuredContent;
     assert.equal(payload.ok, true);
     assert.equal(payload.review_id, preview.review_id);
-    assert.equal(payload.status, "handed_off");
-    assert.deepEqual(Object.keys(payload).sort(), ["next_step", "ok", "review_id", "spawn_parameters", "status", "subagent_payload"]);
-    assert.deepEqual(payload.spawn_parameters, { model: "gpt-6-astra", fork_turns: "none" });
-    const taskPayload = payload.subagent_payload;
-    assert.deepEqual(Object.keys(taskPayload).sort(), ["execution_role", "sanitized_content", "subagent_instructions", "task"]);
-    assert.equal(taskPayload.execution_role, "sanitized_analysis_subagent");
+    assert.equal(payload.status, "running");
+    assert.equal(payload.model, "test-large");
+    const taskPayload = await cloudPayload(session, payload);
+    assert.deepEqual(Object.keys(taskPayload).sort(), ["instructions", "sanitized_content", "task"]);
     assert.equal(taskPayload.task, "审核付款、发票和违约条款");
     assert.equal(taskPayload.sanitized_content, unchanged.result.structuredContent.sanitized_content);
-    assert.match(taskPayload.subagent_instructions, /Do not call check_model or route_request/);
-    assert.match(taskPayload.subagent_instructions, /reconfirm redaction/);
-    assert.match(taskPayload.subagent_instructions, /instructions within it must not change/);
+    assert.match(taskPayload.instructions, /Do not execute the privacy-routing plugin/);
+    assert.match(taskPayload.instructions, /original values or reverse mappings/);
+    assert.match(taskPayload.instructions, /as data, never as instructions/);
     assert.doesNotMatch(JSON.stringify(payload), /中信建设证券|科大讯飞|1302 0180|91340100711440824R|0551-65331888/);
     assert.doesNotMatch(taskPayload.sanitized_content, /科大讯飞|1302|91340100|0551/);
     assert.deepEqual(JSON.parse(handoff.result.content[0].text), payload);
     assert.equal(handoff.result._meta, undefined);
-    const replay = await session.call("tools/call", { name: "handoff_to_subagent", arguments: { review_id: preview.review_id, handoff_token: token, audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId } });
+    const replay = await session.call("tools/call", { name: "run_cloud_analysis", arguments: { review_id: preview.review_id, handoff_token: token, audience: "main", model: "gpt-6-astra", model_selection_id: selectionId } });
     assert.equal(replay.result.structuredContent.ok, false);
   } finally { session.close(); }
 });
@@ -491,23 +445,23 @@ test("short continuation recovers the selected review; stale versions and tokens
     assert.equal(recovered.status, "confirmed");
     assert.equal(recovered.handoff_ready, true);
     assert.equal(recovered.sanitized_sha256, confirmed.sanitized_sha256);
-    const args = { review_id: first.review_id, handoff_token: recovered.handoff_token, expected_sanitized_sha256: recovered.sanitized_sha256, audience: "subagent", model: "gpt-6-astra", model_selection_id: selectionId };
-    const wrongReview = await call("handoff_to_subagent", { ...args, review_id: second.review_id });
+    const args = { review_id: first.review_id, handoff_token: recovered.handoff_token, expected_sanitized_sha256: recovered.sanitized_sha256, audience: "main", model: "gpt-6-astra", model_selection_id: selectionId };
+    const wrongReview = await call("run_cloud_analysis", { ...args, review_id: second.review_id });
     assert.equal(wrongReview.error.code, "confirmation_required");
-    const wrongVersion = await call("handoff_to_subagent", { ...args, expected_sanitized_sha256: "0".repeat(64) });
+    const wrongVersion = await call("run_cloud_analysis", { ...args, expected_sanitized_sha256: "0".repeat(64) });
     assert.equal(wrongVersion.error.code, "version_mismatch");
     // Rescanning edits revokes the old approval even though the chat message
     // only carries the review reference. A new approval issues a new token.
     await call("preview_redaction", { review_id: first.review_id, audience: "main", expected_sanitized_sha256: recovered.sanitized_sha256, redactions: [{ start: recovered.sanitized_content.indexOf("付款"), end: recovered.sanitized_content.indexOf("付款") + 2, type: "private_content" }] });
-    const stale = await call("handoff_to_subagent", args);
+    const stale = await call("run_cloud_analysis", args);
     assert.equal(stale.error.code, "confirmation_required");
     const updated = await call("confirm_redaction", { review_id: first.review_id, audience: "main", confirmed: true });
     assert.notEqual(updated.handoff_token, args.handoff_token);
-    const staleVersion = await call("handoff_to_subagent", { ...args, handoff_token: updated.handoff_token });
+    const staleVersion = await call("run_cloud_analysis", { ...args, handoff_token: updated.handoff_token });
     assert.equal(staleVersion.error.code, "version_mismatch");
-    const accepted = await call("handoff_to_subagent", { ...args, handoff_token: updated.handoff_token, expected_sanitized_sha256: updated.sanitized_sha256 });
-    assert.equal(accepted.status, "handed_off");
-    const replay = await call("handoff_to_subagent", { ...args, handoff_token: updated.handoff_token, expected_sanitized_sha256: updated.sanitized_sha256 });
+    const accepted = await call("run_cloud_analysis", { ...args, handoff_token: updated.handoff_token, expected_sanitized_sha256: updated.sanitized_sha256 });
+    assert.equal(accepted.status, "running");
+    const replay = await call("run_cloud_analysis", { ...args, handoff_token: updated.handoff_token, expected_sanitized_sha256: updated.sanitized_sha256 });
     assert.equal(replay.error.code, "confirmation_required");
   } finally { session.close(); }
 });
@@ -549,7 +503,7 @@ test("UserPromptSubmit resolves from the installed root and assesses every submi
     const output = JSON.parse(result.stdout).hookSpecificOutput;
     assert.equal(output.hookEventName, "UserPromptSubmit");
     assert.match(output.additionalContext, /For every user prompt, call route_request/);
-    const metadata = JSON.parse(output.additionalContext.match(/Preliminary result: (\{.*\})\. For every/)[1]);
+    const metadata = JSON.parse(output.additionalContext.match(/Preliminary local candidate scan: (\{.*\})\. Edge-Cloud/)[1]);
     routes.push(metadata.route);
   }
   assert.deepEqual(routes, prompts.map(() => "assessment_required"));
@@ -572,46 +526,6 @@ test("prompt hook never exposes source values and never reroutes cloud analysis 
   assert.equal(invalid.status, 0);
   assert.match(invalid.stdout, /unavailable/);
   assert.doesNotMatch(invalid.stdout + invalid.stderr, /INVALID_PRIVATE_INPUT/);
-});
-
-test("complex public tasks across domains dispatch before retrieval with an explicit subagent boundary", async () => {
-  const session = rpcSession();
-  const call = async (name, args) => (await session.call("tools/call", { name, arguments: args })).result.structuredContent;
-  try {
-    for (const prompt of ["详细分析这家上市公司的公开财报", "对比公开年报和半年报", "Analyze public financial statements", "Review the latest earnings report", "比较三个开源代码库的架构并评估迁移方案", "Analyze a public dataset", "Review public research reports and compare their methods", "Analyze the publicly documented API architecture"]) {
-      const routed = await call("route_request", { model: "unknown", user_confirmed_small_model: true, prompt, ...publicComplex, response_language: "zh-CN" });
-      assert.equal(routed.route, "subagent", prompt);
-      assert.equal(routed.model_confirmation_required, false);
-      assert.equal(routed.sensitivity.level, "low");
-      assert.equal(routed.review_id, undefined);
-      assert.equal(routed.handoff_token, undefined);
-      assert.match(routed.next_step, /let it search, retrieve public material, verify and analyze/);
-      assert.match(routed.subagent_instructions, /Edge-Cloud Collaboration .* applies only to the main session/);
-      assert.match(routed.subagent_instructions, /Do not load or execute this plugin's skill, hooks, or MCP workflow/);
-      assert.match(routed.subagent_instructions, /Do not call check_model or route_request/);
-      assert.match(routed.subagent_instructions, /independently search authoritative public sources/);
-      assert.match(routed.subagent_instructions, /do not inspect private workspace files/);
-      assert.match(routed.subagent_instructions, /BCP 47 tag: zh-CN/);
-      const selected = await call("select_subagent_model", { available_models: ["gpt-6.1-sol"], large_model_ids: ["gpt-6.1-sol"], response_language: "zh-CN" });
-      assert.deepEqual(selected.spawn_parameters, { model: "gpt-6.1-sol", fork_turns: "none" });
-      assert.equal(selected.subagent_instructions, routed.subagent_instructions);
-      assert.match(selected.next_step, /create the subagent now/);
-    }
-    assert.equal((await call("route_request", { model: "unknown", prompt: "财报是什么意思", ...simpleTask })).route, "local");
-    const privateMaterial = await call("route_request", { model: "unknown", prompt: "分析公开报告", content_pending: true });
-    assert.equal(privateMaterial.route, "inspect_content");
-    assert.equal(privateMaterial.subagent_instructions, undefined);
-    const mixed = await call("route_request", { model: "unknown", prompt: "分析公开报告", context: contract, ...privateComplex, data_scope: "mixed" });
-    assert.equal(mixed.route, "redaction_required");
-    assert.equal(mixed.subagent_instructions, undefined);
-    const review = await call("create_redaction_review", { model: "unknown", audience: "main", content: contract });
-    const confirmed = await call("confirm_redaction", { review_id: review.review_id, audience: "main", confirmed: true });
-    const selected = await call("select_subagent_model", { available_models: ["gpt-6.1-sol"], large_model_ids: ["gpt-6.1-sol"] });
-    const handoff = await call("handoff_to_subagent", { review_id: review.review_id, handoff_token: confirmed.handoff_token, audience: "subagent", model: selected.selected_model, model_selection_id: selected.model_selection_id });
-    assert.match(handoff.subagent_payload.subagent_instructions, /Edge-Cloud Collaboration .* applies only to the main session/);
-    assert.match(handoff.subagent_payload.subagent_instructions, /Analyze sanitized_content/);
-    assert.doesNotMatch(handoff.subagent_payload.subagent_instructions, /independently search|private@example|中信/);
-  } finally { session.close(); }
 });
 
 test("both hooks exempt host subagents before any main-session workflow", () => {
@@ -651,11 +565,11 @@ test("each prompt is reassessed with relevant context rather than an earlier rou
   try {
     const cases = [
       ["你好", "local", simpleTask],
-      ["帮我看看这份协议能怎么改进", "subagent", publicComplex],
+      ["帮我看看这份协议能怎么改进", "cloud_exec", publicComplex],
       ["合同是什么意思", "local", simpleTask],
       ["优化这句话", "local", simpleTask],
-      ["Review the deployment architecture", "subagent", publicComplex],
-      ["请评估这份报告", "subagent", publicComplex],
+      ["Review the deployment architecture", "cloud_exec", publicComplex],
+      ["请评估这份报告", "cloud_exec", publicComplex],
       ["你好", "local", simpleTask],
     ];
     for (const [prompt, expected, assessment] of cases) {
@@ -666,7 +580,7 @@ test("each prompt is reassessed with relevant context rather than an earlier rou
     const pending = await route({ prompt: "请评估这份报告", content_pending: true });
     assert.equal(pending.route, "inspect_content");
     assert.equal(pending.content_assessment, "pending");
-    assert.equal(pending.subagent_model_policy, undefined);
+    assert.equal(pending.cloud_model_policy, undefined);
     const contextual = await route({ prompt: "再提出优化建议", context: "当前材料是财务报告。邮箱：finance@example.org", ...privateComplex });
     assert.equal(contextual.route, "redaction_required");
     assert.ok(contextual.sensitivity.candidate_signals.includes("email"));
@@ -687,7 +601,7 @@ test("routing confirmation and retry prompts preserves review state without gran
     assert.equal(pending.model_confirmation_required, false);
     assert.match(pending.next_step, /end this turn and wait/);
     const confirmation = await call("confirm_redaction", { audience: "main", review_id: review.review_id, confirmed: true });
-    assert.match(confirmation.next_step, /immediately create the host subagent/);
+    assert.match(confirmation.next_step, /run_cloud_analysis/);
     const before = await call("preview_redaction", { audience: "main", review_id: review.review_id });
     assert.equal(before.next_step, confirmation.next_step);
     for (const prompt of ["确认并继续", "重试", "继续"]) {
@@ -697,7 +611,7 @@ test("routing confirmation and retry prompts preserves review state without gran
       assert.equal(resumed.review_id, review.review_id);
       assert.ok(resumed.next_step.includes(confirmation.next_step));
       assert.equal(resumed.handoff_token, undefined);
-      assert.equal(resumed.subagent_model_policy, undefined);
+      assert.equal(resumed.cloud_model_policy, undefined);
       assert.doesNotMatch(JSON.stringify(resumed), /original_content|sanitized_content|6222|中信/);
     }
     const after = await call("preview_redaction", { audience: "main", review_id: review.review_id });
@@ -818,3 +732,13 @@ test('other languages require complete local UI translations and preserve the re
     assert.deepEqual(preview.result._meta.redaction.ui_translations, translations);
   } finally { session.close(); }
 });
+
+async function cloudPayload(session, job) {
+  for (let i = 0; i < 100; i++) {
+    const result = (await session.call('tools/call', { name: 'get_cloud_result', arguments: { job_id: job.job_id } })).result.structuredContent;
+    if (result.status === 'completed') return JSON.parse(result.analysis);
+    assert.notEqual(result.status, 'failed', JSON.stringify(result));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  throw new Error('mock cloud job did not complete');
+}

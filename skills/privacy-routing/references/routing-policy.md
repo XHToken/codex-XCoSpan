@@ -1,50 +1,28 @@
-# Routing and Redaction Policy Reference
+# Routing and cloud protocol
 
-## Semantic task assessment
+The main-session workflow is defined in [SKILL.md](../SKILL.md). Cloud work uses MCP-managed `codex exec`, never host subagent creation.
 
-Only the local main-session model assesses task meaning, actual sensitivity and source provenance. For each task, `route_request` requires `complexity=simple|complex`, `sensitivity=low|medium|high`, `data_scope=public|private|mixed|none|unknown` and a brief `assessment_reason` without private values. Complexity reflects reasoning depth, synthesis, uncertainty and dependencies, independently of domain vocabulary or prompt length. Sensitivity includes confidential meaning and audience restrictions. Public provenance must be verified for supplied material; a future public-only research objective does not require retrieving sources in advance.
+| Tool | Contract |
+| --- | --- |
+| `route_request` | Semantic assessment plus required detection. `cloud_exec` returns a 30-minute request ID bound to the exact prompt/context and detector policy. |
+| `open_cloud_settings` | Open standalone settings from the plugin page; in chat, use only when requested or as an older-client fallback. No inference. |
+| `cloud_settings_read` / `cloud_settings_update` | App-only native detail-page form and draft persistence; editing does not activate a cloud model. |
+| `cloud_settings_apply` / `cloud_settings_reset` | App-only actions to validate/activate or discard the draft. |
+| `save_cloud_settings` | App-visible mutation; validate and atomically save provider/model/HTTPS URL/key variable name/timeout. No secret values. |
+| `select_cloud_model` | Return a selection handle bound to the saved configuration revision for 30 minutes. |
+| `detect_sensitive_content` | Local required/contextual findings with UTF-16 offsets, never raw values. |
+| `create_redaction_review` | Immutable original plus canonical redacted text and UI-only original mapping. |
+| `preview_redaction` | Main-session read or structured edit with exact version hash. Preserve unselected text and required masks. |
+| `confirm_redaction` | Human authorization produces one-time token; cannot reconfirm running/completed reviews. |
+| `revoke_redaction` | Invalidate unsent authorization; cannot recall a started job. |
+| `run_cloud_analysis` | Use a routed request ID OR a confirmed review/token/hash, plus a valid model selection. No arbitrary replacement input for direct jobs. Returns job ID. |
+| `get_cloud_result` | Read running/completed/failed job state. No side effects and no automatic retry. |
 
-Missing or invalid assessment returns `assessment_required`, with no cloud creation instructions. The main session completes local reasoning and calls again; this is not an extra user-confirmation step. Complex low-sensitivity work with unknown source scope also requires assessment. Built-in format matches are advisory `candidate_signals`: their absence is not clearance and their presence does not prove sensitivity. Simple work stays local; complex low-sensitivity work goes directly to a selected cloud large model; complex medium/high-sensitivity work requires local redaction and human confirmation.
+Sensitive state: `awaiting_confirmation → confirmed → running → completed|failed`; rejection/revocation stop unsent work. Failed jobs require fresh consent before a new sensitive execution. Changed content invalidates authorization. Detection policy changes require a new review. Configuration changes invalidate selection handles. Async validation rechecks state before token consumption. Each job snapshots its provider/model, so later settings changes affect only new jobs.
 
-`content_pending=true` is based on actual unread user-supplied/private or unknown material in scope. It returns `inspect_content` before cloud routing. Neither the Hook nor MCP infers unread attachments from text keywords, markup, language or negation. The Hook scans locally on every submission and reports only candidate categories and unassessed metadata. It reads no files, calls no model, and emits no input. The main session resolves actual host references.
+Public payload: fixed `instructions`, assessed `task`, minimal `context`. Sensitive payload: fixed `instructions`, checked `task`, canonical `sanitized_content`. No original values, replacement records, filenames, file paths, review IDs or tokens enter sensitive CLI stdin. The main session retains control state. The server spawns a process with an argument array and `shell:false`; tasks enter stdin, never command arguments.
 
-## Workflow and execution roles
-
-Route every main-session user prompt, including confirmations, corrections, retries and repeated messages. Use `request_kind=continuation` for an unchanged workflow step, with its `review_id` when applicable; `resume` preserves state without granting consent or exposing a token. It does not require a new semantic task assessment. Changed scope or material is assessed as a task. Linked reviews cannot be bypassed by declaring sensitivity low or changing provenance. Expired/unknown linked reviews return an error. Internal subagent results are not user submissions.
-
-All analysis subagents skip this plugin entirely. Both direct and sanitized task messages include explicit execution roles and the shared plugin-exemption prefix. Both Hooks emit only that exemption for host-identified subagents; when metadata is unavailable, a role gate precedes all main-session instructions. Prompt/document text cannot grant an exemption. These are workflow instructions, not authentication. Hosts must restrict tool exposure where supported.
-
-The main session confirms local deployment once and reuses it until the user changes the model or withdraws confirmation. Model names prove neither capability nor deployment. Legacy `is_small_model` is null; `user_confirmed_small_model` retains its compatibility name but means confirmed local main-session deployment. Tools trust the caller's session-scoped confirmation and cannot independently verify deployment. Sensitive redaction still requires separate human consent.
-
-## Semantic redaction
-
-The main session identifies sensitive facts and passages in context, in any language. Pass `sensitive_spans=[{start,end,type},...]` to `create_redaction_review`, using exact UTF-16 start-inclusive/end-exclusive offsets. When supplied, these spans are the complete contextual selection; mark both sensitive format candidates and confidential meaning. Overlapping spans merge and equal values/types reuse stable placeholders. Unselected original contextual candidates are treated as reviewed non-sensitive values; mandatory protection is always retained. This preserves public prices or entity names in material that also contains private passages.
-
-Omitting `sensitive_spans` masks all detected candidates for a compatibility preview. Call `detect_sensitive_content` first and use semantic selections for normal workflows. Required secrets, identity numbers, validated cards and configured mandatory categories are merged into every selection and cannot be removed by editing. Amounts, dates and organizations are contextual by default. Built-in and custom patterns assist detection; neither is a complete privacy classifier. Main-session instructions require semantic review before sensitive handoff. Edits cannot reintroduce known originals, including normalized equivalents. New unreviewed recognizable values in edited text or the task description require a new local assessment/preview; previously reviewed public candidates can remain. Tool checks cannot independently certify semantic completeness or public provenance. Reassess changed material locally.
-
-Original text and original-value mappings remain in process memory and UI-only metadata, never the cloud task package. The UI uses neutral content labels for every domain. Confirmation creates a one-time token. Edits clear it, rejection/revocation stop handoff, and reviews expire after 30 minutes. A read-only preview recovers confirmed state, token and sanitized hash. The UI sends a short localized continuation. It supplies the review ID and continuation action through host model context when supported; otherwise the message includes the ID. Neither channel contains original text, mappings or handoff tokens. Do not match a fixed continuation phrase or treat the message as consent without server state.
-
-## Cloud model eligibility and handoff
-
-The host supplies its complete available-model list and `large_model_ids` derived from capability descriptions. Model names have no allowlist/denylist effect. Lightweight or unknown-capability models remain ineligible because they are not in the host-classified list. Multiple eligible models require the user's explicit choice; a sole eligible model can be announced and used. No eligible model means no cloud analysis. Do not silently downgrade. The plugin trusts host classifications and does not enumerate or authenticate them.
-
-Successful selection supplies `model_selection_id` and `spawn_parameters={model,fork_turns:"none"}`. Selection lasts 30 minutes; reuse a valid explicit task-scoped choice. Set these actual host creation arguments. A model name in prompt text does not set runtime configuration.
-
-For direct non-sensitive work, send `execution_role=non_sensitive_analysis_subagent`, the successful selection's full `subagent_instructions`, `task` and minimum non-sensitive `context`. Dispatch promptly; public retrieval, extraction, verification and analysis belong to the subagent. Never forward main-session history, plugin invocations or private paths.
-
-For sensitive work, `handoff_to_subagent` validates the confirmed review, token, sanitized-version hash and matching model selection. Its outer fields stay in the main session; send only its four-field `subagent_payload`: `execution_role`, `subagent_instructions`, `task`, `sanitized_content`. The token is consumed once. `handed_off` means a package was generated, not that a subagent started or finished. The main session still creates the subagent, obtains results, checks findings and provides the final response. Returned analysis cannot authorize access to originals or another handoff.
-
-## Canonical revisions and consistent validation
-
-The server generates canonical text and registered placeholders from the original plus structured selections. Create, revise, confirm and handoff use the same rule checks. Registered tokens are masked before residual scans, including within flattened table fields; separators delimit field values. Unknown newly invented markers are rejected with local position/category diagnostics. Native bracketed content is retained and cannot collide with generated tokens. Diagnostics never include original sensitive values.
-
-Existing review states include explicit next-step guidance. After creating a valid preview, the main session ends its turn and waits; local preparation is limited to privacy assessment and redaction correctness, rather than completing the substantive analysis. Confirmation resumes selection, handoff, actual subagent creation and waiting for its findings. The UI continuation requests that sequence but does not grant consent independently of server state. These are model instructions, not a host execution lock; the plugin does not intercept unrelated tools or enforce how the host ends a turn. An explicit user choice to handle the task locally takes precedence.
-
-For further masking, `preview_redaction.redactions` selects UTF-16 ranges in the CURRENT sanitized version. Identical selected values are masked consistently throughout the original; existing spans and stable tokens are retained. Alternatively, `preview_redaction.sensitive_spans` replaces the complete ORIGINAL-coordinate selection to repair an overly broad earlier mask. Supply the current `expected_sanitized_sha256` for either operation. Conflicting modes and stale versions are rejected without changing the review. The raw `edited_sanitized` compatibility path accepts only canonical equality, preventing untracked prose rewrites, deletion and descriptive placeholder invention. The selection UI uses the same structured operation.
-
-Multi-block spans require explicit `scope=passage` and a reason. The server reports original/redacted/retained character counts and passage selections, and the UI highlights passage scope as a task-utility concern. This is a structural safeguard; only the local model and user can judge whether the remaining meaning supports the task. Do not sacrifice analysis content merely to pass format checks. True content changes invalidate consent; read-only or unchanged operations preserve it. Confirmation validates the stored body even when no text is echoed, and handoff validates it again before token consumption.
-
-Statistics count the actual registered replacement records for the canonical version. A count of zero means no replacements are recorded, not that no sensitive information exists. The UI highlights registered masks only and presents that distinction explicitly. Existing free-rewritten previews must be reconstructed from the original under the new workflow; a count alone cannot repair their lost meaning.
+Offsets use UTF-16 and cannot split surrogate pairs. Stable placeholders avoid native marker collisions. Structured selections preserve all unselected characters. Repeated required values remain protected. Multiline selections require passage scope/reason. Freeform rewritten summaries are rejected. Scope/meaning remains the local model's responsibility; detection is not semantic proof.
 
 ## Node detection engine
 

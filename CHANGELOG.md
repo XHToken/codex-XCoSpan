@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+- Run cloud CLI workers with full filesystem/network access and no approval prompts; enable shell tools, restore built-in tool defaults, and allow public-source retrieval through shell when hosted search is unavailable.
+
+- Accept API keys directly in the standalone settings password field, persist them locally with restricted file permissions, omit them from tool results, and retain them only for the same provider and URL. Keep legacy environment credentials compatible.
+
+- Expose native cloud model forms on the plugin detail page via `openai/settings`, with a separate MCP App settings entrypoint for ZIP and marketplace installs.
+- Persist incomplete settings as drafts; apply validated changes explicitly, protect against stale configurations and support discarding drafts without changing the active model.
+- Improve standalone settings with provider-specific fields, active configuration, loading/error states, bilingual labels and responsive layout.
+- Preserve millisecond precision when saving fractional-second timeouts from the standalone settings page.
+
+- Replace host subagent cloud handoff with asynchronous MCP-managed `codex exec` jobs and explicit result polling.
+- Add persistent plugin-page provider/model settings, custom Responses-compatible endpoints, environment-based credentials and timeouts.
+- Preserve sensitive-version consent, detector checks and single-use tokens; bind selections to cloud configuration and isolate CLI state.
+- Update Chinese/English setup, usage, architecture, privacy and agent workflow documentation.
+
 ## [0.1.0] - 2026-10-17
 
 First packaged release under the `codex-XCoSpan` repository name, following the initial source snapshot on 2026-10-16.

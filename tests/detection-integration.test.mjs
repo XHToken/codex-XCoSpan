@@ -1,3 +1,4 @@
+import { cloudFixture } from './helpers/cloud-fixture.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawn } from 'node:child_process';
@@ -8,11 +9,12 @@ import http from 'node:http';
 import { once } from 'node:events';
 
 function rpc(env = {}) {
-  const child = spawn(process.execPath, [new URL('../mcp/server.mjs', import.meta.url).pathname], { env: { ...process.env, PRIVACY_ROUTER_CONFIG: '', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const fixture = cloudFixture();
+  const child = spawn(process.execPath, [new URL('../mcp/server.mjs', import.meta.url).pathname], { env: { ...fixture.env, PRIVACY_ROUTER_CONFIG: '', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
   let id = 0, buffer = '', stderr = ''; const pending = new Map();
   child.stderr.on('data', (v) => { stderr += v; });
   child.stdout.on('data', (v) => { buffer += v; let at; while ((at = buffer.indexOf('\n')) >= 0) { const result = JSON.parse(buffer.slice(0, at)); buffer = buffer.slice(at + 1); pending.get(result.id)?.(result.result); pending.delete(result.id); } });
-  return { call(name, args = {}) { const next = ++id; return new Promise((resolve) => { pending.set(next, resolve); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method: 'tools/call', params: { name, arguments: args } }) + '\n'); }); }, close() { child.kill(); }, stderr: () => stderr };
+  return { call(name, args = {}) { const next = ++id; return new Promise((resolve) => { pending.set(next, resolve); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method: 'tools/call', params: { name, arguments: args } }) + '\n'); }); }, close() { child.kill(); child.once('exit', () => fixture.close()); }, stderr: () => stderr };
 }
 const create = (s, content, extra = {}) => s.call('create_redaction_review', { model: 'local', audience: 'main', content, sensitive_spans: [], ...extra });
 const data = (r) => r.structuredContent;
@@ -45,14 +47,14 @@ test('hard protection cannot bypass routing and task text is independently check
     assert.equal(route.sensitivity.source, 'required_detectors');
     const review = data(await create(s, '普通说明文字'));
     const confirmed = data(await s.call('confirm_redaction', { audience: 'main', review_id: review.review_id, confirmed: true }));
-    const selected = data(await s.call('select_subagent_model', { available_models: ['test-large'], large_model_ids: ['test-large'] }));
-    const args = { audience: 'subagent', review_id: review.review_id, handoff_token: confirmed.handoff_token, model: 'test-large', model_selection_id: selected.model_selection_id };
-    const denied = data(await s.call('handoff_to_subagent', { ...args, task: 'password=NewSecret123' }));
+    const selected = data(await s.call('select_cloud_model', { available_models: ['test-large'], large_model_ids: ['test-large'] }));
+    const args = { audience: 'main', expected_sanitized_sha256: review.sanitized_sha256, review_id: review.review_id, handoff_token: confirmed.handoff_token, model: 'test-large', model_selection_id: selected.model_selection_id };
+    const denied = data(await s.call('run_cloud_analysis', { ...args, task: 'password=NewSecret123' }));
     assert.equal(denied.error.code, 'sensitive_value_detected');
     assert.doesNotMatch(JSON.stringify(denied), /NewSecret123/);
-    const allowed = data(await s.call('handoff_to_subagent', { ...args, task: '分析说明' }));
-    assert.equal(allowed.status, 'handed_off');
-    assert.deepEqual(Object.keys(allowed.subagent_payload).sort(), ['execution_role', 'sanitized_content', 'subagent_instructions', 'task']);
+    const allowed = data(await s.call('run_cloud_analysis', { ...args, task: '分析说明' }));
+    assert.equal(allowed.status, 'running');
+    assert.ok(allowed.job_id);
   } finally { s.close(); }
 });
 
@@ -105,9 +107,9 @@ test('model schema errors block review and concurrent revocation wins over in-fl
     mode = 'valid';
     const review = data(await create(s, '普通说明'));
     const confirmed = data(await s.call('confirm_redaction', { audience: 'main', review_id: review.review_id, confirmed: true }));
-    const selected = data(await s.call('select_subagent_model', { available_models: ['test-large'], large_model_ids: ['test-large'] }));
+    const selected = data(await s.call('select_cloud_model', { available_models: ['test-large'], large_model_ids: ['test-large'] }));
     mode = 'hold';
-    const pending = s.call('handoff_to_subagent', { audience: 'subagent', review_id: review.review_id, handoff_token: confirmed.handoff_token, model: 'test-large', model_selection_id: selected.model_selection_id, task: '分析说明' });
+    const pending = s.call('run_cloud_analysis', { expected_sanitized_sha256: review.sanitized_sha256, audience: 'main', review_id: review.review_id, handoff_token: confirmed.handoff_token, model: 'test-large', model_selection_id: selected.model_selection_id, task: '分析说明' });
     await waiting;
     await s.call('revoke_redaction', { audience: 'main', review_id: review.review_id });
     release();

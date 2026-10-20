@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Edge-Cloud Collaboration",
     "shortDescription": "Local and cloud model routing",
-    "longDescription": "Coordinate a locally deployed main-session model with cloud analysis. Simple tasks stay local. Complex non-sensitive tasks use an eligible cloud model; sensitive material is redacted locally and reviewed by the user before handoff. The main session returns the final answer. Requires a compatible host and a separately configured local main-session model.",
+    "longDescription": "Coordinate a locally deployed main-session model with cloud analysis. After installing, configure your cloud provider and model in Settings on this plugin page, or choose Open settings. Simple tasks stay local; sensitive material is redacted and reviewed before cloud handoff. Settings stay on your device across upgrades. Requires a compatible host and a separately configured local main-session model.",
     "developerName": "iFLYTEK",
     "category": "Productivity",
     "capabilities": [

@@ -29,7 +29,7 @@ export function assessRouting(args = {}) {
     route: args.content_pending === true ? "inspect_content"
       : missing.length ? "assessment_required"
       : complexity === "simple" ? "local"
-      : sensitivity === "low" ? "subagent" : "redaction_required",
+      : sensitivity === "low" ? "cloud_exec" : "redaction_required",
     complexity: { level: complexity, source: complexity === "unknown" ? "unassessed" : "main_session" },
     sensitivity: { level: sensitivity, source: sensitivity === "unknown" ? "unassessed" : "main_session", candidate_signals: sensitiveSignals(text) },
     data_scope: scope,

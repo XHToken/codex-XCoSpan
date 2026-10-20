@@ -8,7 +8,8 @@
     "build:ui": "node scripts/build-ui.mjs",
     "package": "npm run build:ui && npm run check:manifests && node scripts/package-plugin.mjs",
     "check:package": "node scripts/check-package.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "check:cloud-cli": "node scripts/check-cloud-cli.mjs"
   },
   "keywords": [],
   "author": "iFLYTEK",

@@ -55,11 +55,11 @@ function checkHooks(unpacked, cwd) {
   const marker = 'SYNTHETIC_PACKAGE_CHECK_DO_NOT_ECHO';
   const session = path.join(unpacked, 'hooks/session-start.mjs');
   const prompt = path.join(unpacked, 'hooks/prompt-routing.mjs');
-  assert.match(runNode(session, { cwd, input: '{}' }), /Edge-Cloud Collaboration enabled/);
+  assert.match(runNode(session, { cwd, input: '{}' }), /run_cloud_analysis/);
   const output = runNode(prompt, { cwd, input: JSON.stringify({ prompt: marker }) });
   const hook = JSON.parse(output).hookSpecificOutput;
   assert.equal(hook?.hookEventName, 'UserPromptSubmit');
-  assert.match(hook.additionalContext, /Edge-Cloud routing:/);
+  assert.match(hook.additionalContext, /Preliminary local candidate scan:/);
   assert.ok(!output.includes(marker), 'Prompt Hook must not echo the submitted text');
   const subagentInput = JSON.stringify({ agent_id: 'package-check-subagent', prompt: marker });
   assert.match(runNode(session, { cwd, input: subagentInput }), /You are an analysis subagent/);

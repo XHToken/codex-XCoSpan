@@ -15,12 +15,12 @@ The main chat chooses a workflow based on task difficulty, the material's actual
 | Task | Example request | Expected workflow |
 | --- | --- | --- |
 | Simple task | “Turn these three tasks into a checklist: prepare the agenda, book a meeting room, and send invitations.” | The main chat completes the task locally. |
-| Complex, non-sensitive task | “Compare backup and recovery options for three open-source databases using public documentation. Include sources and suitable use cases.” | Select a large cloud model. A subagent researches and analyzes public information, and the main chat presents the result. No redaction confirmation is needed. |
+| Complex, non-sensitive task | “Compare backup and recovery options for three open-source databases using public documentation. Include sources and suitable use cases.” | Use the saved provider/model through `codex exec` to research public information; the main chat presents the result. No redaction confirmation is needed. |
 | Complex, sensitive task | “This internal proposal has not been published. Compare the risks of two implementation approaches. Let me confirm a redacted version before any cloud analysis.” | The main chat reads and assesses the material, then creates a redaction preview. It hands off the redacted content only after your confirmation. |
 
 The local main chat reads and assesses user files needed for the task before handoff. Upload and storage behavior still depends on the host. A local file is not necessarily sensitive, and word count does not determine complexity. Default detection needs no extra configuration; see [Detection configuration](./configuration.md) for enterprise dictionaries or an independent detection model.
 
-When cloud analysis is needed, the main chat lists eligible large cloud models and asks you to choose if several are available. If only one is available, it tells you which model it will use. The selection applies to the current task and is separate from confirming the redacted content.
+After installation, use **Plugin details → Settings → Cloud model** to enter your provider/model and choose **Apply settings**, without opening a chat. **Open settings** shows the active configuration and lets you discard drafts. The main chat announces this saved selection, and MCP runs `codex exec` with it. Changes apply to new jobs. This configuration is separate from redaction consent; see [configuration](configuration.md).
 
 ## Review and edit a redaction preview
 
@@ -36,7 +36,7 @@ Closing the comparison window only hides the interface. It neither confirms nor 
 
 ## After confirmation
 
-**“Confirm and continue”** saves authorization for that version and notifies the main chat to proceed. The main chat checks the state, completes any pending cloud model selection, then creates a subagent and waits for its analysis. The main chat provides the final response. A **“Confirmed”** button does not mean that upload or analysis has finished.
+**“Confirm and continue”** saves authorization for that version and notifies the main chat to proceed. The main chat checks the state, completes any pending cloud model selection, then starts a `codex exec` job and polls its result. The main chat provides the final response. A **“Confirmed”** button does not mean that upload or analysis has finished.
 
 If you see **“Confirmation saved, but the main chat could not be notified,”** click **“Notify the main chat”** to retry, or enter this in the original chat:
 
@@ -50,7 +50,7 @@ Previews and cloud model selections are valid for **30 minutes**. To change conf
 
 State your preference at the start of the task:
 
-> Process this task locally only. Do not create a cloud subagent.
+> Process this task locally only. Do not run cloud analysis.
 
 An explicit request for local processing takes precedence over default routing. If you have already rejected a handoff, add: “Please complete this task locally instead.” The rejection button itself only stops the handoff.
 
@@ -58,10 +58,12 @@ An explicit request for local processing takes precedence over default routing. 
 
 | Symptom | Action |
 | --- | --- |
-| No cloud model is available, or the host cannot create a subagent with the selected model | Cloud analysis stops. Configure the required host capabilities or explicitly request local processing. The plugin does not download models or automatically switch to a less capable model. |
+| CLI, authentication, provider or model is unavailable | Cloud analysis stops. Check the CLI path and saved cloud configuration or explicitly request local processing. The plugin does not download models or automatically switch to a less capable model. |
 | The comparison panel cannot connect, or the host does not support interactive buttons | Ask the main chat to display the redacted version and replacement statistics. Review them in the chat and explicitly confirm or reject. You must see the version intended for handoff before confirming it. |
-| You confirmed the preview but received no result | Check whether cloud model selection or a continuation notification is still pending. Use the continuation request above so the main chat reads the existing state. |
+| You confirmed the preview but received no result | Check the cloud job state and whether settings or the continuation notification are still pending. Use the continuation request above so the main chat reads the existing state. |
 | The preview expired, the service restarted, or the original preview cannot be found | Ask the main chat to generate a new preview and confirm it again. The old confirmation cannot authorize a new version. |
 | Detection fails or reports a configuration error | Fix the [detection configuration](./configuration.md) or related service, then retry. You can also explicitly request local processing. |
 
 See [Privacy and data flow](./privacy.md) for the boundaries around source material, detection endpoints, and cloud handoff.
+
+Cloud job failures and timeouts do not automatically retry or change models. Sensitive retries require fresh confirmation; inspect the error before proceeding. A restarted MCP service cannot recover an earlier job, which may already have reached the provider.

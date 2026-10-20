@@ -2,11 +2,11 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-A Codex plugin that coordinates a locally deployed main-session model with cloud analysis. Simple work stays local; complex sensitive material is redacted and reviewed by you before the plugin prepares a cloud handoff.
+A Codex plugin that coordinates a locally deployed main-session model with cloud analysis. Simple work stays local; complex sensitive material is redacted and reviewed by you before the plugin runs cloud analysis through `codex exec`.
 
 The plugin appears as **Edge-Cloud Collaboration**. Its installation ID is `codex-local-privacy-router`.
 
-![codex-XCoSpan architecture: local task routing, redaction and human review, cloud analysis, and local delivery](assets/architecture.png)
+See the [current architecture and flow](docs/architecture.md).
 
 ## Before you start
 
@@ -81,10 +81,10 @@ Submit your task normally. You can mention **Edge-Cloud Collaboration** in the f
 | Your task | What to expect |
 | --- | --- |
 | Simple work | The local main session answers directly. |
-| Complex work using non-sensitive material | The main session selects an eligible cloud model and delegates the analysis. No redaction review is needed. |
+| Complex work using non-sensitive material | MCP runs `codex exec` using your saved provider/model. No redaction review is needed. |
 | Complex work containing sensitive material | The main session creates a local redaction preview and waits for your confirmation. |
 
-On first use, confirm where the main-session model runs. When several eligible cloud models are available, choose one; this choice is separate from approving a redacted document.
+After installation and enablement, use **Plugin details → Settings → Cloud model** to enter your provider/model and choose **Apply settings**, or use **Open settings**. No chat is needed to configure the model. On first use, confirm where the main-session model runs. Cloud analysis requires a local Codex CLI and authentication; see [configuration](docs/configuration.md). This choice is separate from approving a redacted document.
 
 For a redaction review, select **Compare redaction**, check the full text, and mask anything missed. Choose **Confirm and continue** to authorize that version, or **Reject and stop** to stop the handoff. Confirmation saves your decision; the main session then dispatches the analysis and returns the result. Changed content needs another review. To keep a task local, say: “Handle this task locally; do not use cloud analysis.”
 
@@ -99,7 +99,7 @@ The default detector runs offline. An optional configured detection service rece
 | Document | Purpose |
 | --- | --- |
 | [Installation](docs/installation.md) · [Usage](docs/usage.md) | Setup and everyday operation |
-| [Configuration](docs/configuration.md) | Optional dictionary, rules, and detection service |
+| [Configuration](docs/configuration.md) | Cloud provider/model, dictionary, rules, and detection service |
 | [Architecture](docs/architecture.md) | Modules, workflow, and compatibility entry points |
 | [Contributing](CONTRIBUTING.md) | Build, test, and release checks |
 | [Routing reference](skills/privacy-routing/references/routing-policy.md) | Agent-facing protocol and authorization rules |
