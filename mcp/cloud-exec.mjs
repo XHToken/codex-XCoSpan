@@ -69,7 +69,7 @@ async function execute(config, payload, { sanitized = false, signal } = {}) {
     const execConfig = config.provider === 'openai' ? config : { ...config, api_key_env: 'PRIVACY_CLOUD_API_KEY' };
     if (signal.aborted) throw new CloudError('cloud_exec_cancelled', 'The MCP service is stopping.');
     return await new Promise((resolve, reject) => {
-      const child = spawn(process.env.PRIVACY_ROUTER_CODEX_BIN || 'codex', execArguments(execConfig, directory, { sanitized }), { cwd: directory, env, shell: false, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+      const child = spawn(process.env.PRIVACY_ROUTER_EXEC_CODEX_BIN || 'codex', execArguments(execConfig, directory, { sanitized }), { cwd: directory, env, shell: false, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
       let stdout = '', bytes = 0, failure;
       const stop = (code, message) => {
         failure ||= new CloudError(code, message);
@@ -83,7 +83,7 @@ async function execute(config, payload, { sanitized = false, signal } = {}) {
       // Never return CLI diagnostics: they may contain credentials, prompts or provider responses.
       child.stderr.on('data', chunk => { bytes += chunk.length; if (bytes > MAX_OUTPUT_BYTES) stop('cloud_output_too_large', 'Cloud output exceeded the size limit.'); });
       child.stdin.on('error', () => { /* close/error determines the result */ });
-      child.on('error', () => { failure ||= new CloudError('cloud_exec_unavailable', 'Cannot start codex. Check PRIVACY_ROUTER_CODEX_BIN and CLI installation.'); });
+      child.on('error', () => { failure ||= new CloudError('cloud_exec_unavailable', 'Cannot start codex. Check PRIVACY_ROUTER_EXEC_CODEX_BIN and CLI installation.'); });
       child.on('close', code => {
         clearTimeout(timer);
         signal.removeEventListener('abort', abort);

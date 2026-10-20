@@ -4,9 +4,11 @@
 
 The default configuration is ready to use: rule detection runs offline, and the local main chat performs semantic review. Configure a cloud provider/model before cloud analysis; detector settings remain optional. See the [usage guide](usage.md) for everyday operations and [Privacy and data flow](privacy.md) for data destinations.
 
+Exec uses only `PRIVACY_ROUTER_EXEC_CLOUD_CONFIG`, `PRIVACY_ROUTER_EXEC_CONFIG` and `PRIVACY_ROUTER_EXEC_CODEX_BIN`. Main-version `PRIVACY_ROUTER_*` overrides and cloud settings are not read or migrated. Configure Exec separately; its drafts and lock files stay beside its own cloud configuration.
+
 ## Cloud provider and model
 
-After installing and enabling the plugin, open **Edge-Cloud Collaboration → Settings → Cloud model** on its detail page. Enter your provider and exact available model ID, then choose **Apply settings**. ZIP and marketplace installations use the same interface; no chat or installer script is needed. Selecting `Custom` reveals provider-specific fields.
+After installing and enabling the plugin, open **Edge-Cloud Collaboration (Exec) → Settings → Cloud model** on its detail page. Enter your provider and exact available model ID, then choose **Apply settings**. ZIP and marketplace installations use the same interface; no chat or installer script is needed. Selecting `Custom` reveals provider-specific fields.
 
 Detail-page edits are saved locally as a draft and survive restarts. Only applying a valid draft changes the active cloud configuration. Choose **Open settings** for a standalone page showing the active configuration, with apply and discard controls. New edits within that page are saved only when applied; discarding also clears the shared draft. Action buttons report their result; reopen the detail page to refresh its state. Saving does not validate model availability.
 
@@ -18,11 +20,11 @@ The selected cloud model is independent of the main-session model. The plugin do
 - **Custom provider:** enter a provider ID (letters/digits/underscore/hyphen, starting with a letter), model ID, HTTPS base URL such as `https://gateway.example/v1`, then choose **Open settings** and paste the key directly into the **API Key** password field. Apply settings; no environment variable or restart is needed. The field clears after saving and shows a saved indicator. Leave it blank to keep the existing key or enter a new key to replace it. Changing the provider ID or base URL requires entering a key again. The provider must support the **Responses API**; Chat Completions-only endpoints need a compatible gateway. Hosted web search additionally requires compatible provider/model/runtime support. Public research can use shell network requests when hosted search is unavailable; sanitized jobs disable hosted web search.
 - **Timeout:** 1–600 seconds, default 180. Saving is local and sends no inference request. Availability/authentication are checked by the first actual job; failures do not trigger model fallback.
 
-Settings are stored at `$CODEX_HOME/privacy-router/cloud.json` (normally `~/.codex/privacy-router/cloud.json`), with drafts in the adjacent `cloud.json.draft.json`. Override the absolute path with `PRIVACY_ROUTER_CLOUD_CONFIG` before launching MCP. The server writes atomically with file mode `0600` where supported. Keys entered in the page are stored unencrypted in this local file. Restricted file permissions are not a system credential vault. Keys never enter drafts or tool responses and are never filled back into the page. Settings survive plugin upgrades/restarts. Legacy `api_key_env` configurations remain compatible; entering a new key switches to direct storage. Do not commit private settings. To remove configuration, delete both the active file and its draft locally.
+Settings are stored at `$CODEX_HOME/privacy-router-exec/cloud.json` (normally `~/.codex/privacy-router-exec/cloud.json`), with drafts in the adjacent `cloud.json.draft.json`. Override the absolute path with `PRIVACY_ROUTER_EXEC_CLOUD_CONFIG` before launching MCP. The server writes atomically with file mode `0600` where supported. Keys entered in the page are stored unencrypted in this local file. Restricted file permissions are not a system credential vault. Keys never enter drafts or tool responses and are never filled back into the page. Settings survive plugin upgrades/restarts. Legacy `api_key_env` configurations remain compatible; entering a new key switches to direct storage. Do not commit private settings. To remove configuration, delete both the active file and its draft locally.
 
 If active settings change elsewhere, an old draft cannot overwrite them. Discard changes in the standalone settings page before editing again.
 
-Install a Codex CLI supporting `exec`, `--ephemeral`, `--skip-git-repo-check`, `--sandbox danger-full-access`, stdin prompts and the documented config overrides. Make `codex` available to MCP through `PATH`, or set `PRIVACY_ROUTER_CODEX_BIN` to an absolute native executable path. On Windows, use the native executable rather than a `.cmd` wrapper; the launcher uses `shell:false`; the model can invoke the built-in shell tool. The plugin does not execute user-entered command strings or inherit arbitrary Codex provider definitions. Re-enter custom provider details in the plugin page.
+Install a Codex CLI supporting `exec`, `--ephemeral`, `--skip-git-repo-check`, `--sandbox danger-full-access`, stdin prompts and the documented config overrides. Make `codex` available to MCP through `PATH`, or set `PRIVACY_ROUTER_EXEC_CODEX_BIN` to an absolute native executable path. On Windows, use the native executable rather than a `.cmd` wrapper; the launcher uses `shell:false`; the model can invoke the built-in shell tool. The plugin does not execute user-entered command strings or inherit arbitrary Codex provider definitions. Re-enter custom provider details in the plugin page.
 
 Example saved configuration (synthetic values):
 
@@ -47,7 +49,7 @@ References: [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-inte
 
 ## Enterprise dictionaries and rules
 
-Copy the [example configuration](../config/detection.example.json) to a controlled location outside the plugin directory, then set `PRIVACY_ROUTER_CONFIG` to its absolute JSON path. Make sure the process starting Codex/MCP inherits the variable, and restart the relevant MCP service for the change to take effect. Keep enterprise dictionaries out of distribution packages and avoid editing the installation cache. Tool calls cannot arbitrarily select configuration files or model endpoints.
+Copy the [example configuration](../config/detection.example.json) to a controlled location outside the plugin directory, then set `PRIVACY_ROUTER_EXEC_CONFIG` to its absolute JSON path. Make sure the process starting Codex/MCP inherits the variable, and restart the relevant MCP service for the change to take effect. Keep enterprise dictionaries out of distribution packages and avoid editing the installation cache. Tool calls cannot arbitrarily select configuration files or model endpoints.
 
 Example configuration with synthetic entries:
 

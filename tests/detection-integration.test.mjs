@@ -10,7 +10,7 @@ import { once } from 'node:events';
 
 function rpc(env = {}) {
   const fixture = cloudFixture();
-  const child = spawn(process.execPath, [new URL('../mcp/server.mjs', import.meta.url).pathname], { env: { ...fixture.env, PRIVACY_ROUTER_CONFIG: '', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [new URL('../mcp/server.mjs', import.meta.url).pathname], { env: { ...fixture.env, PRIVACY_ROUTER_EXEC_CONFIG: '', ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
   let id = 0, buffer = '', stderr = ''; const pending = new Map();
   child.stderr.on('data', (v) => { stderr += v; });
   child.stdout.on('data', (v) => { buffer += v; let at; while ((at = buffer.indexOf('\n')) >= 0) { const result = JSON.parse(buffer.slice(0, at)); buffer = buffer.slice(at + 1); pending.get(result.id)?.(result.result); pending.delete(result.id); } });
@@ -72,7 +72,7 @@ test('configuration changes invalidate consent; invalid config blocks previews w
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'privacy-config-'));
   const file = path.join(dir, 'private.json');
   fs.writeFileSync(file, JSON.stringify({ dictionary: [{ term: 'Orion', type: 'project_code', action: 'mask' }] }));
-  const s = rpc({ PRIVACY_ROUTER_CONFIG: file });
+  const s = rpc({ PRIVACY_ROUTER_EXEC_CONFIG: file });
   try {
     const review = data(await create(s, 'Orion 文档'));
     assert.doesNotMatch(review.sanitized_content, /Orion/);
@@ -100,7 +100,7 @@ test('model schema errors block review and concurrent revocation wins over in-fl
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const file = path.join(dir, 'config.json');
   fs.writeFileSync(file, JSON.stringify({ local_model: { enabled: true, base_url: `http://127.0.0.1:${server.address().port}/v1`, model: 'synthetic-test' } }));
-  const s = rpc({ PRIVACY_ROUTER_CONFIG: file });
+  const s = rpc({ PRIVACY_ROUTER_EXEC_CONFIG: file });
   try {
     const broken = data(await create(s, '普通说明'));
     assert.equal(broken.error.code, 'invalid_model_output');

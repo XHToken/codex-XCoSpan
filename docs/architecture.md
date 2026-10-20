@@ -4,14 +4,14 @@
 
 The plugin consists of agent instructions, Hooks, a Node.js MCP server, and a confirmation UI. The main session interprets the task. MCP manages detection, consent, saved cloud settings and asynchronous codex exec jobs.
 
-See the [usage guide](usage.md) for operating steps and [privacy and data flow](privacy.md) for deployment boundaries. The [routing protocol reference](../skills/privacy-routing/references/routing-policy.md) is the implementation reference for tool fields, offset rules, and call constraints.
+See the [usage guide](usage.md) for operating steps and [privacy and data flow](privacy.md) for deployment boundaries. The [routing protocol reference](../skills/privacy-routing-exec/references/routing-policy.md) is the implementation reference for tool fields, offset rules, and call constraints.
 
 ## Module responsibilities
 
 | Path | Responsibility |
 | --- | --- |
-| `skills/privacy-routing/SKILL.md` | Main-session workflow and constraints on model selection, user confirmation, and result collection. |
-| `skills/privacy-routing/references/routing-policy.md` | Protocols for routing, redaction revisions, authorization, and handoff. |
+| `skills/privacy-routing-exec/SKILL.md` | Main-session workflow and constraints on model selection, user confirmation, and result collection. |
+| `skills/privacy-routing-exec/references/routing-policy.md` | Protocols for routing, redaction revisions, authorization, and handoff. |
 | `hooks/`, `hooks.json` | Session-start guidance, local candidate scanning on each submission, and host role detection; no attachment reads or model calls. |
 | `mcp/server.mjs` | stdio MCP entry point, tool definitions, preview state, redaction revisions, authorization checks, and UI resources. |
 | `mcp/routing.mjs` | Routing decisions and format-based candidate matching; receives semantic assessments from the main session. |
@@ -59,4 +59,4 @@ The CLI receives an argument array (`shell:false`) and payload through stdin. A 
 
 Both manifest formats share the name, version, and description, but differ in structure and path notation. Do not simply merge them. Synchronize the manifests and run project validation when changing release metadata.
 
-The repository is named `codex-XCoSpan`; the installation identifier remains `codex-local-privacy-router`. Preserve `mcp/server.mjs`, the Hook entry points, and the `ui://codex-local-privacy-router/contract-redaction-review.html` resource URI. After changing the UI source, rebuild the runtime HTML as described in the [contributing guide](../CONTRIBUTING.md).
+The repository is named `codex-XCoSpan`; the installation identifier remains `codex-local-privacy-router-exec`. Preserve `mcp/server.mjs`, the Hook entry points, and the `ui://codex-local-privacy-router-exec/contract-redaction-review.html` resource URI. After changing the UI source, rebuild the runtime HTML as described in the [contributing guide](../CONTRIBUTING.md).

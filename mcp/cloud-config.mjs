@@ -8,7 +8,7 @@ export class CloudError extends Error {
 }
 const fail = () => { throw new CloudError('invalid_cloud_config', 'Check provider, model, HTTPS base URL, API key and timeout.'); };
 export function configPath() {
-  return process.env.PRIVACY_ROUTER_CLOUD_CONFIG || path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'privacy-router', 'cloud.json');
+  return process.env.PRIVACY_ROUTER_EXEC_CLOUD_CONFIG || path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'privacy-router-exec', 'cloud.json');
 }
 export function validateCloudConfig(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail();

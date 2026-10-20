@@ -17,7 +17,7 @@ function fixture(t) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, `Synthetic release fixture: ${relative}\n`);
   }
-  const metadata = { name: 'codex-local-privacy-router', version: '1.2.3', type: 'module', devDependencies: { 'fixture-development-dependency': '1.0.0' } };
+  const metadata = { name: 'codex-local-privacy-router-exec', version: '1.2.3', type: 'module', devDependencies: { 'fixture-development-dependency': '1.0.0' } };
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(metadata, null, 2) + '\n');
   return root;
 }
@@ -37,12 +37,12 @@ test('installation ZIP contains only allowed runtime files and offline documenta
     fs.mkdirSync(path.dirname(filename), { recursive: true });
     fs.writeFileSync(filename, 'EXCLUDED_LOCAL_MATERIAL');
   }
-  const result = packagePlugin({ root, tag: 'v1.2.3' });
+  const result = packagePlugin({ root, tag: 'exec-v1.2.3' });
   const archive = fs.readFileSync(result.zipPath);
   const files = unzipSync(archive);
-  assert.equal(path.basename(result.zipPath), 'codex-local-privacy-router-1.2.3.zip');
+  assert.equal(path.basename(result.zipPath), 'codex-local-privacy-router-exec-1.2.3.zip');
   assert.deepEqual(Object.keys(files), [...PLUGIN_FILES]);
-  for (const required of ['plugin.json', '.codex-plugin/plugin.json', '.mcp.json', 'hooks.json', 'mcp/server.mjs', 'shared/messages.mjs', 'ui/contract-redaction-review.html', 'install.mjs', 'README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', 'docs/installation.md', 'docs/usage.md', 'config/detection.example.json', 'skills/privacy-routing/SKILL.md', 'skills/privacy-routing/references/routing-policy.md']) {
+  for (const required of ['plugin.json', '.codex-plugin/plugin.json', '.mcp.json', 'hooks.json', 'mcp/server.mjs', 'shared/messages.mjs', 'ui/contract-redaction-review.html', 'install.mjs', 'README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', 'docs/installation.md', 'docs/usage.md', 'config/detection.example.json', 'skills/privacy-routing-exec/SKILL.md', 'skills/privacy-routing-exec/references/routing-policy.md']) {
     assert.ok(files[required], `Missing installation or offline documentation file: ${required}`);
     assert.deepEqual(Buffer.from(files[required]), fs.readFileSync(path.join(root, required)));
   }
@@ -55,7 +55,7 @@ test('installation ZIP contains only allowed runtime files and offline documenta
 test('rebuilding is reproducible across source metadata and time zones and preserves other artifacts', (t) => {
   const root = fixture(t);
   fs.mkdirSync(path.join(root, 'dist'));
-  const otherArtifact = path.join(root, 'dist', 'codex-local-privacy-router-0.9.0.zip');
+  const otherArtifact = path.join(root, 'dist', 'codex-local-privacy-router-exec-0.9.0.zip');
   fs.writeFileSync(otherArtifact, 'keep this release');
   const first = packagePlugin({ root });
   const bytes = fs.readFileSync(first.zipPath);
@@ -83,12 +83,12 @@ test('packaging rejects invalid versions and mismatched release tags before crea
     assert.equal(fs.existsSync(path.join(root, 'dist')), false);
   }
   updateVersion(root, '1.2.3-beta.1+build.7');
-  for (const tag of ['v1.2.3', '1.2.3-beta.1+build.7', '']) {
-    assert.throws(() => packagePlugin({ root, tag }), /Release tag must be v1\.2\.3-beta\.1\+build\.7/);
+  for (const tag of ['v1.2.3', 'exec-v1.2.3', '1.2.3-beta.1+build.7', '']) {
+    assert.throws(() => packagePlugin({ root, tag }), /Release tag must be exec-v1\.2\.3-beta\.1\+build\.7/);
     assert.equal(fs.existsSync(path.join(root, 'dist')), false);
   }
-  const valid = packagePlugin({ root, tag: 'v1.2.3-beta.1+build.7' });
-  assert.equal(path.basename(valid.zipPath), 'codex-local-privacy-router-1.2.3-beta.1+build.7.zip');
+  const valid = packagePlugin({ root, tag: 'exec-v1.2.3-beta.1+build.7' });
+  assert.equal(path.basename(valid.zipPath), 'codex-local-privacy-router-exec-1.2.3-beta.1+build.7.zip');
 });
 
 test('missing required runtime files prevent an incomplete release', (t) => {
@@ -118,7 +118,7 @@ test('symlinks in packaged files, parent directories, and output destinations ar
   assert.throws(() => packagePlugin({ root }), /Refusing to overwrite a symbolic link/);
   fs.unlinkSync(path.join(root, 'dist'));
   fs.mkdirSync(path.join(root, 'dist'));
-  fs.symlinkSync(externalMessage, path.join(root, 'dist', 'codex-local-privacy-router-1.2.3.zip'));
+  fs.symlinkSync(externalMessage, path.join(root, 'dist', 'codex-local-privacy-router-exec-1.2.3.zip'));
   assert.throws(() => packagePlugin({ root }), /Refusing to overwrite a symbolic link/);
   assert.equal(fs.readFileSync(externalMessage, 'utf8'), 'MUST_NOT_BE_PACKAGED_OR_OVERWRITTEN');
   assert.deepEqual(fs.readdirSync(outside), ['messages.mjs']);

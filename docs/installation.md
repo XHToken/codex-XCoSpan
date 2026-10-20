@@ -4,6 +4,8 @@
 
 After installation and enablement, configure the model under **Plugin details → Settings → Cloud model**, or choose **Open settings**. ZIP imports use the same entrypoint; no installer script or chat is required for configuration. See [configuration](configuration.md) for compatibility and older-client alternatives.
 
+This guide installs **Edge-Cloud Collaboration (Exec)** (`codex-local-privacy-router-exec`), independently of the main version. The Git marketplace is `codex-xcospan-exec`. Both versions can be installed, but enable only one per chat because each adds automatic routing Hooks. Exec has separate cloud settings; configure them after installation. Existing main-version settings are not imported automatically.
+
 ## Prerequisites
 
 - Install **Node.js 20+** to run the plugin's local service. The client process must be able to find `node` on its PATH.
@@ -25,12 +27,12 @@ node --version
 | Command-line ZIP installation | Codex CLI, extracted plugin ZIP | `node install.mjs` |
 | Installation from source | Git, Codex CLI | Clone the repository and run the installer |
 
-Choose one method. Download the plugin ZIP from [Releases](https://github.com/XHToken/codex-XCoSpan/releases), or [download the v0.1.0 ZIP directly](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip). Select `codex-local-privacy-router-<version>.zip`; GitHub's **Source code (zip)** is for installation from source.
+Choose one method. Install `exec` explicitly with the commands below. For ZIP installation, select `codex-local-privacy-router-exec-<version>.zip` from an `exec-v<version>` [release](https://github.com/XHToken/codex-XCoSpan/releases), when published, or build it on this branch with `npm ci && npm run package`. GitHub’s **Source code (zip)** requires the source installation method; select an Exec tag or the `exec` branch.
 
 <details>
 <summary>Optional: verify download integrity</summary>
 
-Download `codex-local-privacy-router-<version>.zip.sha256` for the same version.
+Download `codex-local-privacy-router-exec-<version>.zip.sha256` for the same version.
 
 Compute the ZIP's SHA-256 hash and compare it with the checksum file. Use PowerShell's `Get-FileHash -Algorithm SHA256` on Windows, `shasum -a 256` on macOS, or `sha256sum` on Linux, followed by the ZIP path.
 
@@ -41,8 +43,8 @@ Compute the ZIP's SHA-256 hash and compare it with the checksum file. Use PowerS
 With Git and a Codex CLI that supports plugin commands installed, run these commands from any directory:
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
 The first command registers the repository marketplace; the second installs the plugin. Codex retrieves the plugin files automatically, so there is no need to download a ZIP, clone the source, or run the installer manually.
@@ -50,15 +52,15 @@ The first command registers the repository marketplace; the second installs the 
 Check the installation:
 
 ```sh
-codex plugin list --marketplace codex-xcospan --json
+codex plugin list --marketplace codex-xcospan-exec --json
 ```
 
-The list should contain `codex-local-privacy-router` with both `installed` and `enabled` set to `true`. Enable its skills, MCP service, and Hooks in the client, trust the Hooks when prompted, and open a new chat.
+The list should contain `codex-local-privacy-router-exec` with both `installed` and `enabled` set to `true`. Enable its skills, MCP service, and Hooks in the client, trust the Hooks when prompted, and open a new chat.
 
 ## Method 2: Desktop ZIP import
 
-1. Open plugin management in Codex desktop and import the downloaded `codex-local-privacy-router-<version>.zip` without extracting it.
-2. Find **Edge-Cloud Collaboration**, check its version, and enable it.
+1. Open plugin management in Codex desktop and import the downloaded `codex-local-privacy-router-exec-<version>.zip` without extracting it.
+2. Find **Edge-Cloud Collaboration (Exec)**, check its version, and enable it.
 3. Confirm that its skills, MCP service, and Hooks are enabled. Review and trust the Hooks when prompted.
 4. In the plugin detail page, fill in **Settings → Cloud model** and click **Apply settings**, then open a new chat. You can also configure the cloud model later; local detection does not require cloud settings.
 
@@ -89,8 +91,8 @@ Follow “Verify the installation” below to check the result.
 With Git and a Codex CLI that supports plugin commands installed, run:
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
-cd codex-XCoSpan
+git clone --branch exec --single-branch https://github.com/XHToken/codex-XCoSpan.git codex-XCoSpan-exec
+cd codex-XCoSpan-exec
 node install.mjs
 ```
 
@@ -100,15 +102,15 @@ If you modify the interface source, run `npm ci` and `npm run build:ui` before r
 
 ## Verify the installation
 
-After desktop import, check the name **Edge-Cloud Collaboration** and its version in plugin management.
+After desktop import, check the name **Edge-Cloud Collaboration (Exec)** and its version in plugin management.
 
-The installer used by methods 3 and 4 copies the plugin to `local-plugin-sources/codex-local-privacy-router/` under the Codex user directory, then installs it through the `edge-cloud-collaboration-local` marketplace. The Codex user directory defaults to `~/.codex` and can be set with `CODEX_HOME`. Check it with:
+The installer used by methods 3 and 4 copies the plugin to `local-plugin-sources/codex-local-privacy-router-exec/` under the Codex user directory, then installs it through the `edge-cloud-collaboration-exec-local` marketplace. The Codex user directory defaults to `~/.codex` and can be set with `CODEX_HOME`. Check it with:
 
 ```sh
-codex plugin list --marketplace edge-cloud-collaboration-local --json
+codex plugin list --marketplace edge-cloud-collaboration-exec-local --json
 ```
 
-The list should contain `codex-local-privacy-router` with both `installed` and `enabled` set to `true`. Check its skills, MCP service, and Hooks in the client, trust the Hooks when prompted, and open a new chat.
+The list should contain `codex-local-privacy-router-exec` with both `installed` and `enabled` set to `true`. Check its skills, MCP service, and Hooks in the client, trust the Hooks when prompted, and open a new chat.
 
 ## Updates
 
@@ -117,8 +119,8 @@ Use the same method you used to install the plugin.
 **Git plugin marketplace:** refresh the repository and reinstall its latest contents.
 
 ```sh
-codex plugin marketplace upgrade codex-xcospan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace upgrade codex-xcospan-exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
 For other methods:

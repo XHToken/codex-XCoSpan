@@ -4,6 +4,8 @@
 
 安装并启用后，可直接在 **插件详情页 → 设置 → 云端模型** 填写并应用配置，或点击 **打开完整设置**。ZIP 导入也使用此入口，不需要运行安装脚本或先进入聊天。兼容范围与旧版客户端入口见[配置说明](configuration.md)。
 
+本指南安装独立的 **Edge-Cloud Collaboration (Exec)**（`codex-local-privacy-router-exec`），Git 市场名为 `codex-xcospan-exec`。它与 main 版本可以同时安装；由于两个版本都会启用自动路由 Hooks，同一聊天请选择一个版本启用。Exec 使用独立的云模型配置，安装后请重新填写；不会自动导入 main 的配置。
+
 ## 安装前准备
 
 - 本机安装 **Node.js 20+**，供插件运行本地服务，且客户端进程能从 PATH 找到 `node`。
@@ -25,12 +27,12 @@ node --version
 | 命令行安装 ZIP | Codex CLI、解压后的插件 ZIP | `node install.mjs` |
 | 从源码安装 | Git、Codex CLI | 克隆仓库，运行安装脚本 |
 
-四种方式选一种即可。ZIP 安装包从 [Releases](https://github.com/XHToken/codex-XCoSpan/releases) 获取，也可直接[下载 v0.1.0 ZIP](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)。选择 `codex-local-privacy-router-<version>.zip`；GitHub 的 **Source code (zip)** 对应源码安装。
+四种方式选一种即可，使用下方命令明确指定 `exec` 分支。ZIP 安装请选择已发布的 `exec-v<version>` [版本](https://github.com/XHToken/codex-XCoSpan/releases)中的 `codex-local-privacy-router-exec-<version>.zip`；尚未发布时，可在本分支执行 `npm ci && npm run package` 构建。GitHub 的 **Source code (zip)** 对应源码安装，请选择 Exec 标签或 `exec` 分支。
 
 <details>
 <summary>可选：校验下载完整性</summary>
 
-下载同一版本的 `codex-local-privacy-router-<version>.zip.sha256`。
+下载同一版本的 `codex-local-privacy-router-exec-<version>.zip.sha256`。
 
 用系统的 SHA-256 工具计算 ZIP 摘要，并与校验文件中的值比较：Windows 使用 PowerShell 的 `Get-FileHash -Algorithm SHA256`，macOS 使用 `shasum -a 256`，Linux 使用 `sha256sum`，命令后接 ZIP 路径。
 
@@ -41,8 +43,8 @@ node --version
 准备 Git 和支持插件命令的 Codex CLI，在任意目录的终端中运行：
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
 第一条命令注册仓库市场，第二条命令安装插件。Codex 自动获取仓库中的插件文件，用户无需手动下载 ZIP、克隆源码或运行安装脚本。
@@ -50,15 +52,15 @@ codex plugin add codex-local-privacy-router@codex-xcospan
 安装后核对状态：
 
 ```sh
-codex plugin list --marketplace codex-xcospan --json
+codex plugin list --marketplace codex-xcospan-exec --json
 ```
 
-列表中应包含插件 `codex-local-privacy-router`，且 `installed`、`enabled` 为 `true`。在客户端启用技能、MCP 服务和 Hooks，按提示信任 Hooks，然后打开新聊天。
+列表中应包含插件 `codex-local-privacy-router-exec`，且 `installed`、`enabled` 为 `true`。在客户端启用技能、MCP 服务和 Hooks，按提示信任 Hooks，然后打开新聊天。
 
 ## 方式二：桌面端导入 ZIP
 
-1. 打开 Codex 桌面端的插件管理入口，选择下载的 `codex-local-privacy-router-<version>.zip` 并导入，无需解压。
-2. 在插件管理中找到 **Edge-Cloud Collaboration**，核对版本并启用。
+1. 打开 Codex 桌面端的插件管理入口，选择下载的 `codex-local-privacy-router-exec-<version>.zip` 并导入，无需解压。
+2. 在插件管理中找到 **Edge-Cloud Collaboration (Exec)**，核对版本并启用。
 3. 确认技能、MCP 服务和 Hooks 已启用，按提示审阅并信任 Hooks。
 4. 在插件详情页的 **设置 → 云端模型** 填写并点击 **应用配置**，然后打开新聊天使用插件。也可先完成安装，之后再配置云端模型；本地检测不依赖云端配置。
 
@@ -89,8 +91,8 @@ node install.mjs
 准备 Git 和支持插件命令的 Codex CLI，在终端运行：
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
-cd codex-XCoSpan
+git clone --branch exec --single-branch https://github.com/XHToken/codex-XCoSpan.git codex-XCoSpan-exec
+cd codex-XCoSpan-exec
 node install.mjs
 ```
 
@@ -100,15 +102,15 @@ node install.mjs
 
 ## 验证安装
 
-桌面端导入后，在插件管理页面检查名称 **Edge-Cloud Collaboration** 和版本。
+桌面端导入后，在插件管理页面检查名称 **Edge-Cloud Collaboration (Exec)** 和版本。
 
-方式三、四的安装脚本会把插件复制到 Codex 用户目录下的 `local-plugin-sources/codex-local-privacy-router/`，并通过 `edge-cloud-collaboration-local` 本地市场安装。Codex 用户目录默认为 `~/.codex`，也可由 `CODEX_HOME` 指定。用以下命令检查：
+方式三、四的安装脚本会把插件复制到 Codex 用户目录下的 `local-plugin-sources/codex-local-privacy-router-exec/`，并通过 `edge-cloud-collaboration-exec-local` 本地市场安装。Codex 用户目录默认为 `~/.codex`，也可由 `CODEX_HOME` 指定。用以下命令检查：
 
 ```sh
-codex plugin list --marketplace edge-cloud-collaboration-local --json
+codex plugin list --marketplace edge-cloud-collaboration-exec-local --json
 ```
 
-列表中应包含插件 `codex-local-privacy-router`，且 `installed`、`enabled` 为 `true`。在客户端检查技能、MCP 服务和 Hooks，按提示信任 Hooks，再打开新聊天。
+列表中应包含插件 `codex-local-privacy-router-exec`，且 `installed`、`enabled` 为 `true`。在客户端检查技能、MCP 服务和 Hooks，按提示信任 Hooks，再打开新聊天。
 
 ## 更新
 
@@ -117,8 +119,8 @@ codex plugin list --marketplace edge-cloud-collaboration-local --json
 **Git 插件市场**：刷新仓库并重新安装最新内容。
 
 ```sh
-codex plugin marketplace upgrade codex-xcospan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace upgrade codex-xcospan-exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
 其他方式：

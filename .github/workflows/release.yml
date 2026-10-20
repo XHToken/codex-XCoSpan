@@ -2,7 +2,7 @@ name: Plugin release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['exec-v*']
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   draft-release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/exec-v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -38,5 +38,5 @@ jobs:
             gh release upload "$RELEASE_TAG" dist/*.zip dist/*.zip.sha256 --clobber
           else
             gh release create "$RELEASE_TAG" dist/*.zip dist/*.zip.sha256 \
-              --verify-tag --draft --title "codex-XCoSpan $RELEASE_TAG" --generate-notes
+              --verify-tag --draft --title "codex-XCoSpan Exec $RELEASE_TAG" --generate-notes
           fi

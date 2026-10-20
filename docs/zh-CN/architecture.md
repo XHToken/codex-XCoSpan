@@ -4,14 +4,14 @@
 
 插件由代理指令、Hooks、Node.js MCP 服务和确认界面组成。主会话理解任务；MCP 服务负责检测、授权、云端配置和异步 codex exec 执行。
 
-使用步骤见[使用指南](usage.md)，部署边界见[隐私与数据流](privacy.md)。工具字段、偏移规则和调用约束统一以[路由协议参考](../../skills/privacy-routing/references/routing-policy.md)为准；该英文协议是实现参考。
+使用步骤见[使用指南](usage.md)，部署边界见[隐私与数据流](privacy.md)。工具字段、偏移规则和调用约束统一以[路由协议参考](../../skills/privacy-routing-exec/references/routing-policy.md)为准；该英文协议是实现参考。
 
 ## 模块职责
 
 | 路径 | 职责 |
 | --- | --- |
-| `skills/privacy-routing/SKILL.md` | 主会话执行流程，以及模型选择、人工确认和结果回收约束。 |
-| `skills/privacy-routing/references/routing-policy.md` | 路由、脱敏修订、授权和交接协议。 |
+| `skills/privacy-routing-exec/SKILL.md` | 主会话执行流程，以及模型选择、人工确认和结果回收约束。 |
+| `skills/privacy-routing-exec/references/routing-policy.md` | 路由、脱敏修订、授权和交接协议。 |
 | `hooks/`、`hooks.json` | 会话启动指引、每次提交的本地候选扫描和宿主角色识别；不读取附件或调用模型。 |
 | `mcp/server.mjs` | stdio MCP 入口、工具定义、预览状态、脱敏修订、授权校验与 UI 资源。 |
 | `mcp/routing.mjs` | 路由判断和格式候选匹配；接收主会话给出的语义评估。 |
@@ -59,4 +59,4 @@ CLI 使用参数数组（`shell:false`）和标准输入传递任务，临时用
 
 两套清单共享名称、版本与说明，但结构和路径表达不同，不应简单合并。修改发布元数据时同步清单并执行项目校验。
 
-仓库名为 `codex-XCoSpan`，安装标识保持 `codex-local-privacy-router`。保留 `mcp/server.mjs`、Hook 入口及 `ui://codex-local-privacy-router/contract-redaction-review.html` 资源 URI。修改界面源码后，按[贡献指南](../../CONTRIBUTING.md)重新构建运行时 HTML。
+仓库名为 `codex-XCoSpan`，安装标识保持 `codex-local-privacy-router-exec`。保留 `mcp/server.mjs`、Hook 入口及 `ui://codex-local-privacy-router-exec/contract-redaction-review.html` 资源 URI。修改界面源码后，按[贡献指南](../../CONTRIBUTING.md)重新构建运行时 HTML。

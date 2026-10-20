@@ -59,21 +59,21 @@ function main() {
   }
   checkPath(codex.mcpServers, '.codex-plugin/plugin.json.mcpServers', '.mcp.json');
   checkPath(codex.skills, '.codex-plugin/plugin.json.skills', 'skills', 'directory');
-  for (const filename of ['skills/privacy-routing/SKILL.md', 'skills/privacy-routing/references/routing-policy.md']) {
+  for (const filename of ['skills/privacy-routing-exec/SKILL.md', 'skills/privacy-routing-exec/references/routing-policy.md']) {
     checkPath(filename, 'Privacy routing skill resource', filename);
   }
 
   for (const filename of ['mcp.json', '.mcp.json']) {
     const config = readJson(filename);
-    same(Object.keys(config.mcpServers || {}), ['privacy-router'], `${filename}.mcpServers entries`);
-    const server = config.mcpServers['privacy-router'];
-    check(server && typeof server === 'object', `${filename}.mcpServers.privacy-router: expected an object`);
-    same(server.command, 'node', `${filename}.mcpServers.privacy-router.command`);
-    if (filename === 'mcp.json' || server.type !== undefined) same(server.type, 'stdio', `${filename}.mcpServers.privacy-router.type`);
-    check(Array.isArray(server.args) && server.args.length === 2, `${filename}.mcpServers.privacy-router.args: expected the server path and --stdio`);
-    checkPath(server.args[0], `${filename}.mcpServers.privacy-router.args[0]`, 'mcp/server.mjs');
-    same(server.args[1], '--stdio', `${filename}.mcpServers.privacy-router.args[1]`);
-    checkPath(server.cwd, `${filename}.mcpServers.privacy-router.cwd`, '.', 'directory');
+    same(Object.keys(config.mcpServers || {}), ['privacy-router-exec'], `${filename}.mcpServers entries`);
+    const server = config.mcpServers['privacy-router-exec'];
+    check(server && typeof server === 'object', `${filename}.mcpServers.privacy-router-exec: expected an object`);
+    same(server.command, 'node', `${filename}.mcpServers.privacy-router-exec.command`);
+    if (filename === 'mcp.json' || server.type !== undefined) same(server.type, 'stdio', `${filename}.mcpServers.privacy-router-exec.type`);
+    check(Array.isArray(server.args) && server.args.length === 2, `${filename}.mcpServers.privacy-router-exec.args: expected the server path and --stdio`);
+    checkPath(server.args[0], `${filename}.mcpServers.privacy-router-exec.args[0]`, 'mcp/server.mjs');
+    same(server.args[1], '--stdio', `${filename}.mcpServers.privacy-router-exec.args[1]`);
+    checkPath(server.cwd, `${filename}.mcpServers.privacy-router-exec.cwd`, '.', 'directory');
   }
 
   const hooks = readJson('hooks.json').hooks;

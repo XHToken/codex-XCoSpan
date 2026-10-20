@@ -20,9 +20,9 @@ import { runCloudExec, shutdownCloudExec } from "./cloud-exec.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageInfo = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-const SERVER_NAME = "codex-local-privacy-router";
+const SERVER_NAME = "codex-local-privacy-router-exec";
 const VERSION = packageInfo.version;
-const UI_URI = "ui://codex-local-privacy-router/contract-redaction-review.html";
+const UI_URI = "ui://codex-local-privacy-router-exec/contract-redaction-review.html";
 const MAX_CONTENT_CHARS = 200_000;
 const REVIEW_TTL_MS = 30 * 60 * 1000;
 const reviews = new Map();
@@ -890,7 +890,7 @@ async function handleRpc(message) {
   if (message.method.startsWith("notifications/")) return null;
   try {
     if (message.method === "initialize") {
-      return { jsonrpc: "2.0", id, result: { protocolVersion: params.protocolVersion || "2024-11-05", capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false }, extensions: { "openai/settings": settingsCapability } }, serverInfo: { name: SERVER_NAME, title: "Codex Edge-Cloud Collaboration", version: VERSION } } };
+      return { jsonrpc: "2.0", id, result: { protocolVersion: params.protocolVersion || "2024-11-05", capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false }, extensions: { "openai/settings": settingsCapability } }, serverInfo: { name: SERVER_NAME, title: "Codex Edge-Cloud Collaboration (Exec)", version: VERSION } } };
     }
     if (message.method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (message.method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: toolDefinitions() } };

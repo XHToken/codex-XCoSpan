@@ -1,10 +1,17 @@
-# codex-XCoSpan
+# codex-XCoSpan · Exec
+
+[![CI](https://github.com/XHToken/codex-XCoSpan/actions/workflows/ci.yml/badge.svg?branch=exec)](https://github.com/XHToken/codex-XCoSpan/actions/workflows/ci.yml?query=branch%3Aexec)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join-7289da?logo=discord&logoColor=white)](https://discord.gg/yxesrcfy7)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 让本地主会话模型与云端分析模型协作的 Codex 插件：简单任务留在本地；复杂任务涉及敏感材料时，先在本地脱敏，由你确认后通过 `codex exec` 调用云端模型。
 
-客户端显示名称为 **Edge-Cloud Collaboration**，安装标识为 `codex-local-privacy-router`。
+客户端显示名称为 **Edge-Cloud Collaboration (Exec)**，安装标识为 `codex-local-privacy-router-exec`。
+
+本分支与 `main` 独立迭代，使用独立的插件、市场、MCP 服务、技能及云模型配置（`~/.codex/privacy-router-exec/cloud.json`）。两个版本可以同时安装；同一聊天中请选择一个版本启用，避免重复执行路由流程。安装后需单独配置 Exec 的云模型。
 
 当前流程见[架构说明](docs/zh-CN/architecture.md)。
 
@@ -16,7 +23,7 @@
 
 ## 安装
 
-**[下载插件 ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [所有版本](https://github.com/XHToken/codex-XCoSpan/releases)
+通过下方 Git 插件市场或源码命令安装 `exec` 分支。使用 ZIP 时，请选择已发布的 `exec-v<version>` [版本](https://github.com/XHToken/codex-XCoSpan/releases)中的 `codex-local-privacy-router-exec-<version>.zip`；尚未发布时，可在本分支执行 `npm ci && npm run package` 自行构建。
 
 选择一种方式即可：
 
@@ -32,17 +39,17 @@
 准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
-Codex 会自动获取仓库并安装插件，无需手动下载 ZIP 或克隆源码。安装后在客户端启用 **Edge-Cloud Collaboration**，按提示审阅并信任 Hooks，打开新聊天。
+Codex 会自动获取仓库并安装插件，无需手动下载 ZIP 或克隆源码。安装后在客户端启用 **Edge-Cloud Collaboration (Exec)**，按提示审阅并信任 Hooks，打开新聊天。
 
 ### 方式二：桌面端导入 ZIP
 
-1. 下载上方的 `codex-local-privacy-router-0.1.0.zip`。
+1. 获取 Exec 版本中的 `codex-local-privacy-router-exec-<version>.zip`，或按上方说明从本分支构建。
 2. 打开 Codex 桌面端的插件管理页面，通过 ZIP 导入入口选择该文件。ZIP 已包含构建好的界面和运行文件，无需解压。
-3. 安装后启用 **Edge-Cloud Collaboration**，按提示审阅并信任 Hooks，然后打开新聊天。
+3. 安装后启用 **Edge-Cloud Collaboration (Exec)**，按提示审阅并信任 Hooks，然后打开新聊天。
 
 ### 方式三：命令行安装 ZIP
 
@@ -65,8 +72,8 @@ node install.mjs
 准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
-cd codex-XCoSpan
+git clone --branch exec --single-branch https://github.com/XHToken/codex-XCoSpan.git codex-XCoSpan-exec
+cd codex-XCoSpan-exec
 node install.mjs
 ```
 
@@ -74,9 +81,9 @@ node install.mjs
 
 ## 怎么使用
 
-直接用自然语言提交任务即可。首次可以提及 **Edge-Cloud Collaboration**；Hooks 正常启用后，后续消息不需要反复点名插件。
+直接用自然语言提交任务即可。首次可以提及 **Edge-Cloud Collaboration (Exec)**；Hooks 正常启用后，后续消息不需要反复点名插件。
 
-> 请使用 Edge-Cloud Collaboration 分析这份虚构的供应商方案，比较履约风险。如需云端分析，请先让我确认脱敏版本。
+> 请使用 Edge-Cloud Collaboration (Exec) 分析这份虚构的供应商方案，比较履约风险。如需云端分析，请先让我确认脱敏版本。
 
 | 任务类型 | 你会看到什么 |
 | --- | --- |
@@ -105,7 +112,13 @@ node install.mjs
 | [检测配置](docs/zh-CN/configuration.md) | 可选企业词表、自定义规则与检测服务 |
 | [架构说明](docs/zh-CN/architecture.md) | 模块职责、工作流与兼容入口 |
 | [贡献指南](CONTRIBUTING.md) | 开发、测试和发布检查 |
-| [路由参考](skills/privacy-routing/references/routing-policy.md) | 面向代理的协议与授权规则 |
+| [路由参考](skills/privacy-routing-exec/references/routing-policy.md) | 面向代理的协议与授权规则 |
 | [安全报告](SECURITY.md) · [更新记录](CHANGELOG.md) | 漏洞报告与版本历史 |
 
-本项目采用 [MIT 许可证](LICENSE)。
+## 社区交流
+
+欢迎加入 [Discord](https://discord.gg/yxesrcfy7) 参与讨论，通过 [GitHub Issues](https://github.com/XHToken/codex-XCoSpan/issues) 反馈问题或提出建议，也可以访问 [XHToken 社区](https://github.com/XHToken/community) 了解参与方式。
+
+参与交流请遵守[社区行为准则](CODE_OF_CONDUCT.md)。安全漏洞请按照[安全政策](SECURITY.md)中的渠道私下报告。
+
+本项目采用 [Apache License 2.0](LICENSE)。

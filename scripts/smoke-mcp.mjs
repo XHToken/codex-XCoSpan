@@ -11,7 +11,7 @@ const packageInfo = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 
 const settingsDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'privacy-settings-smoke-'));
 const child = spawn(process.execPath, [path.join(root, 'mcp/server.mjs'), '--stdio'], {
   cwd: os.tmpdir(), stdio: ['pipe', 'pipe', 'pipe'],
-  env: { ...process.env, PRIVACY_ROUTER_CLOUD_CONFIG: path.join(settingsDirectory, 'cloud.json') },
+  env: { ...process.env, PRIVACY_ROUTER_EXEC_CLOUD_CONFIG: path.join(settingsDirectory, 'cloud.json') },
 });
 const rl = readline.createInterface({ input: child.stdout });
 const pending = new Map();

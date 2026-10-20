@@ -4,7 +4,7 @@
 
 ## Start a task
 
-After installation, enable the plugin, its skills, MCP service, and Hooks. Trust the Hooks when the host prompts you, then open a new chat. You can mention **Edge-Cloud Collaboration** in your first request and describe the task in ordinary language. You do not need to repeat the plugin name in later messages.
+After installation, enable the plugin, its skills, MCP service, and Hooks. Trust the Hooks when the host prompts you, then open a new chat. You can mention **Edge-Cloud Collaboration (Exec)** in your first request and describe the task in ordinary language. You do not need to repeat the plugin name in later messages.
 
 On the first task, the plugin asks you to confirm **whether the current main chat model is deployed locally**. This confirms where your material is processed; it does not authorize redaction handoff or select a cloud model. Confirm only if the model is actually deployed locally. Otherwise, first switch to an available local model in the host. The plugin does not deploy or switch models. A valid confirmation is reused within the same chat; changing the model or withdrawing confirmation requires a new confirmation.
 

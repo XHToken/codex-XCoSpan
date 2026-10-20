@@ -6,7 +6,7 @@ import { zipSync } from 'fflate';
 import { PLUGIN_FILES } from './plugin-files.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const pluginName = 'codex-local-privacy-router';
+const pluginName = 'codex-local-privacy-router-exec';
 const executableFiles = new Set(['hooks/session-start.sh', 'hooks/user-prompt-submit.sh']);
 
 function sourceFile(root, relative) {
@@ -55,7 +55,7 @@ export function packagePlugin({ root = projectRoot, tag } = {}) {
   if (packageInfo.name !== pluginName) throw new Error(`package.json.name must be ${pluginName}`);
   validateVersion(packageInfo.version);
   const version = packageInfo.version;
-  if (tag !== undefined && tag !== `v${version}`) throw new Error(`Release tag must be v${version}; received ${JSON.stringify(tag)}`);
+  if (tag !== undefined && tag !== `exec-v${version}`) throw new Error(`Release tag must be exec-v${version}; received ${JSON.stringify(tag)}`);
 
   const entries = Object.create(null);
   for (const relative of PLUGIN_FILES) {
@@ -91,11 +91,11 @@ export function packagePlugin({ root = projectRoot, tag } = {}) {
 
 function main(args) {
   if (args.length === 1 && args[0] === '--help') {
-    console.log('Usage: node scripts/package-plugin.mjs [--tag vVERSION]\nCreates the installation ZIP and SHA-256 file in dist/.');
+    console.log('Usage: node scripts/package-plugin.mjs [--tag exec-vVERSION]\nCreates the installation ZIP and SHA-256 file in dist/.');
     return;
   }
   if (args.length !== 0 && !(args.length === 2 && args[0] === '--tag' && args[1])) {
-    throw new Error('Usage: node scripts/package-plugin.mjs [--tag vVERSION]');
+    throw new Error('Usage: node scripts/package-plugin.mjs [--tag exec-vVERSION]');
   }
   const result = packagePlugin({ tag: args[1] });
   console.log(`Created ${result.zipPath}\nCreated ${result.checksumPath}\nSHA-256: ${result.sha256}`);

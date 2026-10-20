@@ -1,5 +1,5 @@
 {
-  "name": "codex-local-privacy-router",
+  "name": "codex-local-privacy-router-exec",
   "version": "0.1.0",
   "description": "Assess every user prompt in a locally deployed main session, preserve workflow state across follow-ups, and require redaction confirmation before sensitive cloud analysis.",
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "keywords": [],
   "author": "iFLYTEK",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "devDependencies": {
     "@modelcontextprotocol/ext-apps": "^2.0.3",

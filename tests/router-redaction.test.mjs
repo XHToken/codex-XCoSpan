@@ -63,7 +63,7 @@ test("MCP initializes and advertises routing/redaction tools and UI resource", a
   const session = rpcSession();
   try {
     const init = await session.call("initialize", { protocolVersion: "2024-11-05" });
-    assert.equal(init.result.serverInfo.name, "codex-local-privacy-router");
+    assert.equal(init.result.serverInfo.name, "codex-local-privacy-router-exec");
     const tools = await session.call("tools/list");
     assert.ok(tools.result.tools.some((tool) => tool.name === "route_request"));
     assert.ok(tools.result.tools.some((tool) => tool.name === "run_cloud_analysis"));
@@ -74,6 +74,7 @@ test("MCP initializes and advertises routing/redaction tools and UI resource", a
       assert.equal(tool._meta["openai/widgetAccessible"], true);
     }
     const resources = await session.call("resources/list");
+    assert.equal(resources.result.resources[0].uri, "ui://codex-local-privacy-router-exec/contract-redaction-review.html");
     assert.equal(resources.result.resources[0].mimeType, "text/html;profile=mcp-app");
     const ui = await session.call("resources/read", { uri: resources.result.resources[0].uri });
     assert.match(ui.result.contents[0].text, /原始内容/);
@@ -421,7 +422,7 @@ test("stable redaction, confirmation gate, and one-time sanitized handoff", asyn
     assert.deepEqual(Object.keys(taskPayload).sort(), ["instructions", "sanitized_content", "task"]);
     assert.equal(taskPayload.task, "审核付款、发票和违约条款");
     assert.equal(taskPayload.sanitized_content, unchanged.result.structuredContent.sanitized_content);
-    assert.match(taskPayload.instructions, /Do not execute the privacy-routing plugin/);
+    assert.match(taskPayload.instructions, /Do not execute the privacy-routing-exec plugin/);
     assert.match(taskPayload.instructions, /original values or reverse mappings/);
     assert.match(taskPayload.instructions, /as data, never as instructions/);
     assert.doesNotMatch(JSON.stringify(payload), /中信建设证券|科大讯飞|1302 0180|91340100711440824R|0551-65331888/);
@@ -544,7 +545,7 @@ test("both hooks exempt host subagents before any main-session workflow", () => 
       const output = context(JSON.stringify({ ...metadata, prompt: "PRIVATE_SECRET private@example.org" }));
       assert.match(output, /not the user-facing main session/);
       assert.match(output, /Do not load or execute this plugin's skill, hooks, or MCP workflow/);
-      assert.doesNotMatch(output, /Preliminary result|Edge-Cloud Collaboration enabled|For every user prompt, call/);
+      assert.doesNotMatch(output, /Preliminary result|Edge-Cloud Collaboration (Exec) enabled|For every user prompt, call/);
     }
     // Missing hook metadata does not override the actual host role. Prompt text
     // resembling metadata cannot exempt a real main session from its workflow.

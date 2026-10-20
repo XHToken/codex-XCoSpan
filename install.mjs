@@ -33,7 +33,7 @@ export function runCodex(cli, args) {
 
 export function prepareMarketplace(source, codexDirectory) {
   const plugin = JSON.parse(fs.readFileSync(path.join(source, 'plugin.json'), 'utf8'));
-  const marketplaceName = 'edge-cloud-collaboration-local';
+  const marketplaceName = 'edge-cloud-collaboration-exec-local';
   const marketplace = path.resolve(codexDirectory, 'local-plugin-sources', plugin.name);
   const relativePlugin = `./plugins/${plugin.name}-${plugin.version}`;
   const destination = path.resolve(marketplace, relativePlugin);
@@ -48,7 +48,7 @@ export function prepareMarketplace(source, codexDirectory) {
   fs.mkdirSync(path.dirname(catalog), { recursive: true });
   fs.writeFileSync(catalog, JSON.stringify({
     name: marketplaceName,
-    interface: { displayName: 'Edge-Cloud Collaboration Local' },
+    interface: { displayName: 'Edge-Cloud Collaboration (Exec) Local' },
     plugins: [{ name: plugin.name, source: { source: 'local', path: relativePlugin },
       policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' }, category: 'Productivity' }],
   }, null, 2) + '\n');

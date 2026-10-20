@@ -4,9 +4,11 @@
 
 默认配置可直接使用：规则检测离线运行，语义复核由本地主会话完成。云端分析前需配置供应商与模型；企业词表、自定义规则或额外检测服务按需配置。日常操作见[使用指南](usage.md)，数据去向见[隐私边界](privacy.md)。
 
+Exec 仅使用 `PRIVACY_ROUTER_EXEC_CLOUD_CONFIG`、`PRIVACY_ROUTER_EXEC_CONFIG` 和 `PRIVACY_ROUTER_EXEC_CODEX_BIN`。不会读取或迁移 main 版本的 `PRIVACY_ROUTER_*` 环境变量和云模型配置。请单独配置 Exec；草稿和锁文件与 Exec 的配置保存在同一目录。
+
 ## 云端供应商与模型
 
-安装并启用插件后，打开 **Edge-Cloud Collaboration 插件详情页 → 设置（Settings）→ 云端模型**，直接填写供应商和账号可用的准确模型 ID，然后点击 **应用配置**。ZIP 导入和商店安装使用同一设置接口，不需要先进入聊天或运行安装脚本。选择 `Custom` 后才显示自定义供应商字段。
+安装并启用插件后，打开 **Edge-Cloud Collaboration (Exec) 插件详情页 → 设置（Settings）→ 云端模型**，直接填写供应商和账号可用的准确模型 ID，然后点击 **应用配置**。ZIP 导入和商店安装使用同一设置接口，不需要先进入聊天或运行安装脚本。选择 `Custom` 后才显示自定义供应商字段。
 
 详情页逐项编辑会自动保存本机草稿，重启后可继续填写；只有应用成功才会改变后续云端任务使用的配置。点击 **打开完整设置（Open settings）** 可在独立页面查看当前生效配置、应用草稿或撤销更改。完整页面内的新编辑在点击应用前不写入；撤销更改也会清除共享草稿。应用结果由操作按钮反馈，重新打开详情页可刷新状态。保存不验证模型可用性。
 
@@ -18,11 +20,11 @@
 - **自定义供应商**：填写供应商 ID（字母开头，允许字母、数字、下划线和连字符）、模型 ID、HTTPS 接口地址（如 `https://gateway.example/v1`），并点击 **打开完整设置**，在 **API Key** 密码框中直接粘贴密钥并应用配置，无需设置环境变量或重启。保存后输入框清空并显示“已保存”；留空保留原 Key，填写新 Key 即可替换。更换供应商 ID 或接口地址需重新填写 Key。供应商必须兼容 **Responses API**；仅支持 Chat Completions 的服务需通过兼容网关接入。托管网页搜索还要求供应商、模型和运行时共同支持；公开研究可在托管搜索不可用时通过 shell 联网获取资料，脱敏任务关闭托管网页搜索。
 - **超时**：1–600 秒，默认 180 秒。保存仅修改本机配置，不会发起推理。首次真实任务才验证模型可用性和鉴权，失败不会自动切换模型。
 
-配置默认保存在 `$CODEX_HOME/privacy-router/cloud.json`（通常为 `~/.codex/privacy-router/cloud.json`），草稿位于该文件旁的 `cloud.json.draft.json`。可在启动 MCP 前用 `PRIVACY_ROUTER_CLOUD_CONFIG` 指定绝对路径。服务原子写入文件，在支持的平台使用 `0600` 权限。页面填写的 Key 与配置一起保存在本机文件中，未加密；文件权限用于限制访问，不等同于系统钥匙串。密钥不进入草稿或工具返回结果，也不会回填到页面。重启和插件升级后仍保留。旧版 `api_key_env` 配置继续兼容，填入新 Key 后切换到直接存储。不要将私人配置提交到仓库；删除正式配置及草稿文件即可清除配置。
+配置默认保存在 `$CODEX_HOME/privacy-router-exec/cloud.json`（通常为 `~/.codex/privacy-router-exec/cloud.json`），草稿位于该文件旁的 `cloud.json.draft.json`。可在启动 MCP 前用 `PRIVACY_ROUTER_EXEC_CLOUD_CONFIG` 指定绝对路径。服务原子写入文件，在支持的平台使用 `0600` 权限。页面填写的 Key 与配置一起保存在本机文件中，未加密；文件权限用于限制访问，不等同于系统钥匙串。密钥不进入草稿或工具返回结果，也不会回填到页面。重启和插件升级后仍保留。旧版 `api_key_env` 配置继续兼容，填入新 Key 后切换到直接存储。不要将私人配置提交到仓库；删除正式配置及草稿文件即可清除配置。
 
 如果配置在其他页面或进程中改变，旧草稿不会覆盖新配置。请在完整设置页撤销更改后重新填写。
 
-安装支持 `exec`、`--ephemeral`、`--skip-git-repo-check`、`--sandbox danger-full-access`、标准输入提示词及配置覆盖的 Codex CLI。让 MCP 能通过 `PATH` 找到 `codex`，或用 `PRIVACY_ROUTER_CODEX_BIN` 指定本机可执行文件的绝对路径。Windows 请指向原生可执行文件而不是 `.cmd` 包装脚本；启动器使用 `shell:false`，模型仍可调用内置 shell 工具。页面不能配置任意命令，也不会继承 Codex 配置中的其他供应商定义，自定义供应商需在页面重新填写。
+安装支持 `exec`、`--ephemeral`、`--skip-git-repo-check`、`--sandbox danger-full-access`、标准输入提示词及配置覆盖的 Codex CLI。让 MCP 能通过 `PATH` 找到 `codex`，或用 `PRIVACY_ROUTER_EXEC_CODEX_BIN` 指定本机可执行文件的绝对路径。Windows 请指向原生可执行文件而不是 `.cmd` 包装脚本；启动器使用 `shell:false`，模型仍可调用内置 shell 工具。页面不能配置任意命令，也不会继承 Codex 配置中的其他供应商定义，自定义供应商需在页面重新填写。
 
 保存文件示例（合成数据）：
 
@@ -47,7 +49,7 @@
 
 ## 企业词表和规则
 
-将[配置示例](../../config/detection.example.json)复制到插件目录以外的受控位置，通过环境变量 `PRIVACY_ROUTER_CONFIG` 指向该 JSON 的绝对路径。确保启动 Codex/MCP 的进程实际继承该变量，重启相关 MCP 服务后生效。不要直接修改安装缓存或把企业词表打进分发包；工具调用不能任意指定配置文件或模型地址。
+将[配置示例](../../config/detection.example.json)复制到插件目录以外的受控位置，通过环境变量 `PRIVACY_ROUTER_EXEC_CONFIG` 指向该 JSON 的绝对路径。确保启动 Codex/MCP 的进程实际继承该变量，重启相关 MCP 服务后生效。不要直接修改安装缓存或把企业词表打进分发包；工具调用不能任意指定配置文件或模型地址。
 
 配置示例（词条是合成示例）：
 

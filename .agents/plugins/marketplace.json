@@ -1,11 +1,11 @@
 {
-  "name": "codex-xcospan",
+  "name": "codex-xcospan-exec",
   "interface": {
-    "displayName": "codex-XCoSpan"
+    "displayName": "codex-XCoSpan Exec"
   },
   "plugins": [
     {
-      "name": "codex-local-privacy-router",
+      "name": "codex-local-privacy-router-exec",
       "source": {
         "source": "local",
         "path": "./"

@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- Give Exec its own plugin ID, marketplaces, MCP service, UI resource URI, and routing skill so it can be installed alongside main.
+- Store Exec cloud settings separately and use `PRIVACY_ROUTER_EXEC_*` overrides without importing main-version settings.
+- Pin installation instructions to `exec` and publish Exec packages under independent `exec-v<version>` tags.
+
 - Run cloud CLI workers with full filesystem/network access and no approval prompts; enable shell tools, restore built-in tool defaults, and allow public-source retrieval through shell when hosted search is unavailable.
 
 - Accept API keys directly in the standalone settings password field, persist them locally with restricted file permissions, omit them from tool results, and retain them only for the same provider and URL. Keep legacy environment credentials compatible.

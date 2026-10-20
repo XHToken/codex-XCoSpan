@@ -1,11 +1,11 @@
 {
-  "name": "codex-local-privacy-router",
+  "name": "codex-local-privacy-router-exec",
   "version": "0.1.0",
   "description": "Assess every user prompt in a locally deployed main session, preserve workflow state across follow-ups, and require redaction confirmation before sensitive cloud analysis.",
   "author": {
     "name": "iFLYTEK"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "routing",
     "privacy",
@@ -17,7 +17,7 @@
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks.json",
   "interface": {
-    "displayName": "Edge-Cloud Collaboration",
+    "displayName": "Edge-Cloud Collaboration (Exec)",
     "shortDescription": "Local and cloud model routing",
     "longDescription": "Coordinate a locally deployed main-session model with cloud analysis. After installing, configure your cloud provider and model in Settings on this plugin page, or choose Open settings. Simple tasks stay local; sensitive material is redacted and reviewed before cloud handoff. Settings stay on your device across upgrades. Requires a compatible host and a separately configured local main-session model.",
     "developerName": "iFLYTEK",

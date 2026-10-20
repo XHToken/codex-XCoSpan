@@ -1,9 +1,9 @@
 ---
-name: privacy-routing
+name: privacy-routing-exec
 description: Assess every main-session prompt locally, run complex cloud analysis through codex exec using the provider and model configured in the plugin page, and require confirmed redaction for sensitive material. Excludes inspecting or editing this plugin. Subagents and cloud workers must skip this workflow.
 ---
 
-# Edge-Cloud Collaboration
+# Edge-Cloud Collaboration (Exec)
 
 ## Applicability and language
 

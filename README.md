@@ -1,10 +1,17 @@
-# codex-XCoSpan
+# codex-XCoSpan · Exec
+
+[![CI](https://github.com/XHToken/codex-XCoSpan/actions/workflows/ci.yml/badge.svg?branch=exec)](https://github.com/XHToken/codex-XCoSpan/actions/workflows/ci.yml?query=branch%3Aexec)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join-7289da?logo=discord&logoColor=white)](https://discord.gg/yxesrcfy7)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 A Codex plugin that coordinates a locally deployed main-session model with cloud analysis. Simple work stays local; complex sensitive material is redacted and reviewed by you before the plugin runs cloud analysis through `codex exec`.
 
-The plugin appears as **Edge-Cloud Collaboration**. Its installation ID is `codex-local-privacy-router`.
+The plugin appears as **Edge-Cloud Collaboration (Exec)**. Its installation ID is `codex-local-privacy-router-exec`.
+
+This branch evolves independently of `main`. It uses its own plugin, marketplace, MCP service, skill and cloud settings (`~/.codex/privacy-router-exec/cloud.json`). Installations can coexist; enable one version per chat to avoid applying two routing workflows. Configure the Exec cloud model separately after installation.
 
 See the [current architecture and flow](docs/architecture.md).
 
@@ -16,7 +23,7 @@ See the [current architecture and flow](docs/architecture.md).
 
 ## Install
 
-**[Download plugin ZIP · v0.1.0](https://github.com/XHToken/codex-XCoSpan/releases/download/v0.1.0/codex-local-privacy-router-0.1.0.zip)** · [All releases](https://github.com/XHToken/codex-XCoSpan/releases)
+Install the `exec` branch using the Git marketplace or source commands below. For ZIP installation, use an Exec package named `codex-local-privacy-router-exec-<version>.zip` from an `exec-v<version>` [release](https://github.com/XHToken/codex-XCoSpan/releases), when published, or build one with `npm ci && npm run package`.
 
 Choose one installation method:
 
@@ -32,17 +39,17 @@ Choose one installation method:
 With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
-codex plugin add codex-local-privacy-router@codex-xcospan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
 ```
 
-Codex fetches the repository and installs the plugin automatically. No manual ZIP download or source checkout is needed. Enable **Edge-Cloud Collaboration** in your client, review and trust its Hooks when prompted, and start a new chat.
+Codex fetches the repository and installs the plugin automatically. No manual ZIP download or source checkout is needed. Enable **Edge-Cloud Collaboration (Exec)** in your client, review and trust its Hooks when prompted, and start a new chat.
 
 ### Option 2: Desktop ZIP import
 
-1. Download `codex-local-privacy-router-0.1.0.zip` using the link above.
+1. Obtain `codex-local-privacy-router-exec-<version>.zip` from an Exec release or build it from this branch as described above.
 2. Open plugin management in Codex desktop and select the file through its ZIP import option. The ZIP includes the built UI and runtime files; leave it compressed.
-3. Enable **Edge-Cloud Collaboration**, review and trust its Hooks when prompted, then start a new chat.
+3. Enable **Edge-Cloud Collaboration (Exec)**, review and trust its Hooks when prompted, then start a new chat.
 
 ### Option 3: Command-line ZIP installation
 
@@ -65,8 +72,8 @@ The script copies the plugin, registers a local marketplace, and installs it. En
 With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
-cd codex-XCoSpan
+git clone --branch exec --single-branch https://github.com/XHToken/codex-XCoSpan.git codex-XCoSpan-exec
+cd codex-XCoSpan-exec
 node install.mjs
 ```
 
@@ -74,9 +81,9 @@ The repository includes the built UI. Enable the plugin in your client, trust it
 
 ## Use it
 
-Submit your task normally. You can mention **Edge-Cloud Collaboration** in the first request; once its Hooks are active, you do not need to repeat the name on every turn.
+Submit your task normally. You can mention **Edge-Cloud Collaboration (Exec)** in the first request; once its Hooks are active, you do not need to repeat the name on every turn.
 
-> Use Edge-Cloud Collaboration to compare the risks in this synthetic supplier proposal. Show me the redacted version before any cloud analysis.
+> Use Edge-Cloud Collaboration (Exec) to compare the risks in this synthetic supplier proposal. Show me the redacted version before any cloud analysis.
 
 | Your task | What to expect |
 | --- | --- |
@@ -102,7 +109,13 @@ The default detector runs offline. An optional configured detection service rece
 | [Configuration](docs/configuration.md) | Cloud provider/model, dictionary, rules, and detection service |
 | [Architecture](docs/architecture.md) | Modules, workflow, and compatibility entry points |
 | [Contributing](CONTRIBUTING.md) | Build, test, and release checks |
-| [Routing reference](skills/privacy-routing/references/routing-policy.md) | Agent-facing protocol and authorization rules |
+| [Routing reference](skills/privacy-routing-exec/references/routing-policy.md) | Agent-facing protocol and authorization rules |
 | [Security](SECURITY.md) · [Changelog](CHANGELOG.md) | Vulnerability reporting and release history |
 
-Licensed under [MIT](LICENSE).
+## Community
+
+Join our [Discord](https://discord.gg/yxesrcfy7) for discussion, report bugs or suggest features in [GitHub Issues](https://github.com/XHToken/codex-XCoSpan/issues), and visit the [XHToken community](https://github.com/XHToken/community) to get involved.
+
+Please follow our [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as described in the [Security Policy](SECURITY.md).
+
+Licensed under the [Apache License 2.0](LICENSE).

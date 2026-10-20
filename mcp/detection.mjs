@@ -59,8 +59,8 @@ export function validateConfig(input = {}) {
 
 export function loadConfig(env = process.env) {
   try {
-    if (!env.PRIVACY_ROUTER_CONFIG) return validateConfig();
-    const text = fs.readFileSync(env.PRIVACY_ROUTER_CONFIG, 'utf8');
+    if (!env.PRIVACY_ROUTER_EXEC_CONFIG) return validateConfig();
+    const text = fs.readFileSync(env.PRIVACY_ROUTER_EXEC_CONFIG, 'utf8');
     if (Buffer.byteLength(text) > 2_000_000) fail();
     return validateConfig(JSON.parse(text));
   } catch (error) { if (error instanceof DetectionError) throw error; fail(); }

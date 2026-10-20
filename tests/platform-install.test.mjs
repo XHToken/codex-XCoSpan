@@ -91,10 +91,17 @@ test('installer creates a portable dedicated marketplace without touching other 
     const other = path.join(codexDirectory, 'other-marketplace.json');
     fs.mkdirSync(codexDirectory);
     fs.writeFileSync(other, 'unchanged');
+    const mainSource = path.join(codexDirectory, 'local-plugin-sources', 'codex-local-privacy-router');
+    const mainCatalog = path.join(mainSource, '.agents', 'plugins', 'marketplace.json');
+    fs.mkdirSync(path.dirname(mainCatalog), { recursive: true });
+    const mainCatalogText = JSON.stringify({ name: 'edge-cloud-collaboration-local', plugins: [] });
+    fs.writeFileSync(mainCatalog, mainCatalogText);
     const { marketplace, selector } = prepareMarketplace(source, codexDirectory);
     const catalog = JSON.parse(fs.readFileSync(path.join(marketplace, '.agents', 'plugins', 'marketplace.json'), 'utf8'));
     const target = path.resolve(marketplace, catalog.plugins[0].source.path);
-    assert.equal(selector, `codex-local-privacy-router@${catalog.name}`);
+    assert.equal(selector, `codex-local-privacy-router-exec@${catalog.name}`);
+    assert.equal(catalog.name, 'edge-cloud-collaboration-exec-local');
+    assert.equal(marketplace, path.join(codexDirectory, 'local-plugin-sources', 'codex-local-privacy-router-exec'));
     assert.ok(catalog.plugins[0].source.path.startsWith('./plugins/'));
     assert.ok(!catalog.plugins[0].source.path.includes('\\'));
     assert.ok(fs.existsSync(path.join(target, '.mcp.json')));
@@ -103,5 +110,6 @@ test('installer creates a portable dedicated marketplace without touching other 
     assert.equal(fs.readFileSync(other, 'utf8'), 'unchanged');
     // Re-running from the installed source must not copy it into itself.
     assert.deepEqual(prepareMarketplace(target, codexDirectory), { marketplace, selector });
+    assert.equal(fs.readFileSync(mainCatalog, 'utf8'), mainCatalogText);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });

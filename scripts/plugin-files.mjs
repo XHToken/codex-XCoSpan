@@ -45,7 +45,7 @@ export const PLUGIN_FILES = Object.freeze([
   'package.json',
   'plugin.json',
   'shared/messages.mjs',
-  'skills/privacy-routing/SKILL.md',
-  'skills/privacy-routing/references/routing-policy.md',
+  'skills/privacy-routing-exec/SKILL.md',
+  'skills/privacy-routing-exec/references/routing-policy.md',
   'ui/contract-redaction-review.html',
 ].sort());

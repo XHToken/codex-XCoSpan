@@ -104,7 +104,7 @@ test('CLI errors, empty output, timeout and output limits are bounded without di
       const result = await waitJob(s, await s.call('run_cloud_analysis', { audience: 'main', model_selection_id: selected.model_selection_id, cloud_request_id: route.cloud_request_id }));
       assert.equal(result.error.code, code); assert.doesNotMatch(JSON.stringify(result), /SENSITIVE_DIAGNOSTIC|synthetic-key/);
     }
-    f.env.PRIVACY_ROUTER_CODEX_BIN = path.join(f.directory, 'missing-codex');
+    f.env.PRIVACY_ROUTER_EXEC_CODEX_BIN = path.join(f.directory, 'missing-codex');
   } finally { await s.close(); f.close(); }
 });
 

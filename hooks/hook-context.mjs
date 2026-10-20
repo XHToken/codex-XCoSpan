@@ -19,4 +19,4 @@ export function isSubagent(input) {
   return Boolean(input?.agent_id || (input?.agent_type && input.agent_type !== "main"));
 }
 
-export const ROLE_FIRST = "Execution role takes precedence within this plugin: if the host identifies you as a subagent (for example, a non-root task path or a delegated task), Edge-Cloud Collaboration is out of scope. Execute the supplied task directly; do not load or run privacy-routing, call its tools, or ask deployment/model/redaction confirmation questions. The following routing rules apply ONLY to the user-facing main session. Missing hook role metadata does not turn a host subagent into a main session.";
+export const ROLE_FIRST = "Execution role takes precedence within this plugin: if the host identifies you as a subagent (for example, a non-root task path or a delegated task), Edge-Cloud Collaboration (Exec) is out of scope. Execute the supplied task directly; do not load or run privacy-routing-exec, call its tools, or ask deployment/model/redaction confirmation questions. The following routing rules apply ONLY to the user-facing main session. Missing hook role metadata does not turn a host subagent into a main session.";
