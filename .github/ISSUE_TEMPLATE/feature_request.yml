@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem would this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and compatibility considerations
+      description: Explain how the proposal preserves local review, confirmation, and existing plugin compatibility.

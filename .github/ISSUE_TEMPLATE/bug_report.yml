@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include personal, business, credential, or confidential content. Use synthetic examples.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: operating_system
+    attributes:
+      label: Operating system and version
+      placeholder: Windows 11, macOS 15, Ubuntu 24.04, etc.
+    validations:
+      required: true
+  - type: input
+    id: node_version
+    attributes:
+      label: Node.js version
+      description: Run node --version in the environment used to start Codex.
+      placeholder: v20.x.x
+    validations:
+      required: true
+  - type: input
+    id: codex_client
+    attributes:
+      label: Codex client and version
+      description: Identify the desktop app, CLI, or other host and its exact version.
+    validations:
+      required: true
+  - type: dropdown
+    id: installation_method
+    attributes:
+      label: Installation method
+      options:
+        - Local installer (node install.mjs)
+        - Marketplace CLI (codex plugin add)
+        - Client ZIP import
+        - Other (describe in the reproduction steps)
+    validations:
+      required: true
+  - type: dropdown
+    id: failure_stage
+    attributes:
+      label: Failure stage
+      options:
+        - Installation or update
+        - Plugin startup or Hooks
+        - Task routing or model selection
+        - Sensitive content detection
+        - Redaction preview or editing
+        - Confirmation or cloud handoff
+        - Other (describe below)
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true

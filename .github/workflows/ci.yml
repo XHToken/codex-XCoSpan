@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build plugin package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            npm run package -- --tag "$GITHUB_REF_NAME"
+          else
+            npm run package
+          fi
+      - name: Check committed UI output
+        run: git diff --exit-code -- ui/contract-redaction-review.html
+      - name: Verify extracted plugin package
+        run: npm run check:package
+      - name: Install Chrome for Playwright
+        run: npx playwright install --with-deps chrome
+      - name: Run tests
+        run: npm test
+      - name: Save verified plugin package
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+          if-no-files-found: error

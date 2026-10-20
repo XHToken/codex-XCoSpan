@@ -1,0 +1,42 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-local-privacy-router",
+  "version": "0.1.0",
+  "description": "Assess every user prompt in a locally deployed main session, preserve workflow state across follow-ups, and require redaction confirmation before sensitive cloud analysis.",
+  "author": {
+    "name": "iFLYTEK"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "routing",
+    "privacy",
+    "redaction",
+    "subagent",
+    "codex"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Edge-Cloud Collaboration",
+        "shortDescription": "Local and cloud model routing",
+        "longDescription": "Coordinate a locally deployed main-session model with cloud analysis. Simple tasks stay local. Complex non-sensitive tasks use an eligible cloud model; sensitive material is redacted locally and reviewed by the user before handoff. The main session returns the final answer. Requires a compatible host and a separately configured local main-session model.",
+        "developerName": "iFLYTEK",
+        "category": "Productivity",
+        "capabilities": [
+          "Interactive",
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Analyze this material, assess its privacy locally, and confirm redaction before any sensitive cloud handoff.",
+          "Decide whether the local main-session model should handle this task or hand it to a cloud large-model subagent.",
+          "Identify sensitive information in this file locally and generate a redaction preview for confirmation."
+        ],
+        "brandColor": "#0B8F68",
+        "logo": "./assets/lock.svg",
+        "composerIcon": "./assets/lock.svg"
+      },
+      "hooks": "./hooks.json"
+    }
+  }
+}

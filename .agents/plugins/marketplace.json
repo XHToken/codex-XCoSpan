@@ -1,0 +1,20 @@
+{
+  "name": "codex-xcospan",
+  "interface": {
+    "displayName": "codex-XCoSpan"
+  },
+  "plugins": [
+    {
+      "name": "codex-local-privacy-router",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

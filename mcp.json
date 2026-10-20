@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "privacy-router": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/mcp/server.mjs", "--stdio"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

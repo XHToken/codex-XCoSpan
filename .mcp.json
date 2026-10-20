@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "privacy-router": {
+      "title": "Edge-Cloud Collaboration",
+      "description": "Coordinate a locally deployed main-session model and cloud-model subagents; require local redaction confirmation before sensitive handoff.",
+      "cwd": ".",
+      "command": "node",
+      "args": [
+        "./mcp/server.mjs",
+        "--stdio"
+      ]
+    }
+  }
+}
