@@ -2,6 +2,12 @@
 
 [Project home](../README.md) · [简体中文](zh-CN/installation.md)
 
+## Choose a branch before installing
+
+The `main` version uses native Codex subagents, which currently share the main session's provider. For a local main-session model and a cloud subagent, use a third-party gateway to expose both through one provider/base URL and adapt both to the Responses API. Complete the [model connection setup](configuration.md#model-providers-and-api-protocol) first; installing the plugin does not create that gateway.
+
+If you need different providers for the main session and cloud analysis, use the [Exec alternative below](#install-the-exec-alternative). It runs cloud analysis in a separate Codex process, with Responses API compatibility still required for each model endpoint.
+
 ## Prerequisites
 
 - Install **Node.js 20+** to run the plugin's local service. The client process must be able to find `node` on its PATH.
@@ -13,6 +19,19 @@ Check your Node.js version in a terminal:
 ```sh
 node --version
 ```
+
+## Install the Exec alternative
+
+For independent main-session and worker providers, install directly from `exec`:
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
+```
+
+The plugin appears as **Edge-Cloud Collaboration (Exec)**. Its separate `codex exec` worker uses the provider/model configured on the Exec plugin detail page. The main-session and worker endpoints must each support the Responses API, directly or through an adapter. Configure them separately and enable one plugin version per chat to avoid duplicate routing Hooks.
+
+For source installation, ZIP packages, settings and updates, follow the [Exec installation guide](https://github.com/XHToken/codex-XCoSpan/blob/exec/docs/installation.md). The four methods below install the main version. The branches evolve independently; installing Exec does not require merging main into it.
 
 ## Choose an installation method
 
@@ -39,7 +58,7 @@ Compute the ZIP's SHA-256 hash and compare it with the checksum file. Use PowerS
 With Git and a Codex CLI that supports plugin commands installed, run these commands from any directory:
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref main
 codex plugin add codex-local-privacy-router@codex-xcospan
 ```
 
@@ -86,7 +105,7 @@ Follow “Verify the installation” below to check the result.
 With Git and a Codex CLI that supports plugin commands installed, run:
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
+git clone --branch main --single-branch https://github.com/XHToken/codex-XCoSpan.git
 cd codex-XCoSpan
 node install.mjs
 ```

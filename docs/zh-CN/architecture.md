@@ -6,6 +6,12 @@
 
 使用步骤见[使用指南](usage.md)，部署边界见[隐私与数据流](privacy.md)。工具字段、偏移规则和调用约束统一以[路由协议参考](../../skills/privacy-routing/references/routing-policy.md)为准；该英文协议是实现参考。
 
+## 供应商边界与 Exec 替代方案
+
+`main` 的原生 subagent 即使选择不同模型 ID，也会继承主会话的供应商。因此，“本地主会话 + 云端 subagent”需要第三方网关将两类模型路由到统一供应商入口，并提供 Responses API 协议。MCP 服务不配置供应商，也不转换推理协议。详见[模型接入要求](configuration.md#模型供应商与-api-协议)。
+
+[`exec` 分支](https://github.com/XHToken/codex-XCoSpan/tree/exec)将原生 subagent 替换为独立的 `codex exec` 进程；两个进程可分别使用不同供应商、接口地址和鉴权，但各自的模型端点仍须兼容 Responses API。需要该实现时，按 [Exec 安装步骤](installation.md#安装-exec-替代方案)安装。两个分支独立迭代。
+
 ## 模块职责
 
 | 路径 | 职责 |

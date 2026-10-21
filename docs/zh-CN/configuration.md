@@ -1,8 +1,36 @@
-# 检测配置
+# 模型接入与检测配置
 
 [项目首页](../../README.zh-CN.md) · [English](../configuration.md)
 
-默认配置可直接使用：规则检测离线运行，语义复核由本地主会话完成。只有需要企业词表、自定义规则或额外检测服务时，才需要本页配置。日常操作见[使用指南](usage.md)，数据去向见[隐私边界](privacy.md)。
+请先按下方说明完成模型接入。检测部分默认无需额外配置：规则检测离线运行，语义复核由本地主会话完成；企业词表、自定义规则或额外检测服务均为可选。日常操作见[使用指南](usage.md)，数据去向见[隐私边界](privacy.md)。
+
+## 模型供应商与 API 协议
+
+### Codex 原生 subagent 的当前限制
+
+截至 2026-10-21，Codex 原生 subagent 继承主会话的供应商。可以选择不同模型 ID，但在自定义 agent 中设置 `model_provider` 不会覆盖主会话的供应商。参见 [OpenAI 官方 subagent 文档](https://learn.chatgpt.com/docs/agent-configuration/subagents#custom-agents)。
+
+`main` 插件通过宿主工具创建原生 subagent，无法为云端 subagent 单独指定另一套供应商、接口地址和鉴权。仅配置两个供应商，或在任务文字中写一个云端模型名，都不会建立独立的供应商连接。
+
+### main：通过网关统一接入本地与云端模型
+
+在 `main` 中使用本地/云端协作前，请先完成：
+
+1. 借助第三方网关，把本地主会话模型与云端分析模型统一暴露为一个供应商入口（provider/base URL），通过不同模型 ID 分流到对应后端。
+2. 该入口对两类模型均提供 **Responses API 协议**，包括 Codex 所需的流式响应和工具调用行为。如果后端只支持 Chat Completions 或其他协议，需由网关适配请求和响应；仅修改接口路径并不够。参见[网关兼容性要求](https://learn.chatgpt.com/docs/enterprise/gateway-compatibility)。
+3. 在宿主的用户级 Codex 配置中设置这个统一供应商，让主会话使用本地模型，并让云端模型在同一供应商下可供 subagent 选择。提交私密材料前，先验证实际路由。
+
+插件不安装网关、不部署模型，也不执行上述协议转换。处理主会话请求的网关会接触原文：应将这条链路部署在满足隐私边界的本机或受控环境，并把主会话模型路由到本地推理。共用一个 URL 本身不代表模型在本地运行，详见[隐私与数据流](privacy.md)。
+
+### exec：使用独立 Codex 进程执行云端分析
+
+如果主会话和云端分析需要使用不同供应商，请安装 [`exec` 分支](https://github.com/XHToken/codex-XCoSpan/tree/exec)。它将原生 subagent 替换为独立的 `codex exec` 进程，可分别配置供应商、接口地址和鉴权，无需共用一个供应商入口。但**两侧模型端点仍须直接支持或经适配提供 Responses API 协议**；Exec 不负责将任意模型协议自动转换。
+
+按 [Exec 安装步骤](installation.md#安装-exec-替代方案)安装 **Edge-Cloud Collaboration (Exec)**（`codex-local-privacy-router-exec`），再在插件详情页单独配置云模型。Main 与 Exec 的插件身份和配置独立，同一聊天请选择一个版本启用。
+
+### 可选检测服务使用独立协议
+
+上述 Responses API 要求适用于 Codex 主会话和云端分析链路。下方的可选 `local_model` 检测器是 MCP 单独调用的服务，仍使用 **Chat Completions**；它不选择主会话供应商，也不配置 subagent 或 Exec 的路由。
 
 ## 保护类别
 

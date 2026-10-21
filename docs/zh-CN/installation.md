@@ -2,6 +2,12 @@
 
 [项目首页](../../README.zh-CN.md) · [English](../installation.md)
 
+## 安装前先选择分支
+
+`main` 版本使用 Codex 原生 subagent，目前与主会话共用模型供应商。要组合本地主会话模型与云端 subagent，需借助第三方网关统一供应商入口（provider/base URL），并将两类模型统一适配为 Responses API。请先完成[模型接入配置](configuration.md#模型供应商与-api-协议)，安装插件不会自动提供网关。
+
+如果主会话与云端分析需要不同供应商，请使用下方的 [Exec 替代方案](#安装-exec-替代方案)。它通过独立 Codex 进程执行云端分析，但两侧模型端点仍须兼容 Responses API。
+
 ## 安装前准备
 
 - 本机安装 **Node.js 20+**，供插件运行本地服务，且客户端进程能从 PATH 找到 `node`。
@@ -13,6 +19,19 @@
 ```sh
 node --version
 ```
+
+## 安装 Exec 替代方案
+
+需要主会话与云端进程分别使用不同供应商时，可直接从 `exec` 安装：
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
+```
+
+客户端显示为 **Edge-Cloud Collaboration (Exec)**。独立的 `codex exec` 进程使用 Exec 插件详情页中配置的供应商和模型；主会话与独立进程的端点均须直接支持或经适配提供 Responses API。请分别完成配置，同一聊天只启用一个插件版本，避免路由 Hooks 重复运行。
+
+源码安装、ZIP、配置和更新方式见 [Exec 安装指南](https://github.com/XHToken/codex-XCoSpan/blob/exec/docs/zh-CN/installation.md)。下方四种方式安装的是 main 版本。两个分支独立迭代，安装 Exec 不需要将 main 合并到该分支。
 
 ## 选择安装方式
 
@@ -39,7 +58,7 @@ node --version
 准备 Git 和支持插件命令的 Codex CLI，在任意目录的终端中运行：
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref main
 codex plugin add codex-local-privacy-router@codex-xcospan
 ```
 
@@ -86,7 +105,7 @@ node install.mjs
 准备 Git 和支持插件命令的 Codex CLI，在终端运行：
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
+git clone --branch main --single-branch https://github.com/XHToken/codex-XCoSpan.git
 cd codex-XCoSpan
 node install.mjs
 ```

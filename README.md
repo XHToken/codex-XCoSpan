@@ -14,10 +14,31 @@ The plugin appears as **Edge-Cloud Collaboration**. Its installation ID is `code
 
 ![codex-XCoSpan architecture: local task routing, redaction and human review, cloud analysis, and local delivery](assets/architecture.webp)
 
+## Model providers and branch choice
+
+> **The `main` version uses native Codex subagents, which currently inherit the main session's model provider. Choosing a different model does not select a different provider.**
+
+To use a local main-session model and a cloud subagent on `main`, first use a third-party gateway to expose both through **one provider/base URL**, route by model ID, and adapt both backends to the **Responses API**. The plugin does not include this gateway or convert model protocols. See [model connection requirements](docs/configuration.md#model-providers-and-api-protocol).
+
+| Branch | Cloud analysis | Model connection |
+| --- | --- | --- |
+| `main` | Native Codex subagent | Main session and subagent share one provider; a gateway routes local/cloud models and exposes Responses API compatibility. |
+| [`exec`](https://github.com/XHToken/codex-XCoSpan/tree/exec) | A separate `codex exec` process | Main session and worker may use different providers/base URLs; each model endpoint must still support the Responses API, directly or through an adapter. |
+
+For the independent-process option, install the Exec plugin:
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
+```
+
+It appears as **Edge-Cloud Collaboration (Exec)**. Configure its cloud provider/model separately and enable one version per chat. Full steps are in the [Exec installation guide](https://github.com/XHToken/codex-XCoSpan/blob/exec/docs/installation.md).
+
 ## Before you start
 
 - Install Node.js 20+ to run the plugin's local service.
 - Use the Codex desktop app. Command-line installation also requires a Codex CLI with `plugin` commands.
+- Connect local and cloud models through a shared Responses-compatible gateway for `main`, or choose the Exec version above.
 - Configure a locally deployed main-session model **before submitting private material**. Installing this plugin does not install a model, change where your chat runs, or make an existing cloud chat local.
 
 ## Install
@@ -38,7 +59,7 @@ Choose one installation method:
 With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref main
 codex plugin add codex-local-privacy-router@codex-xcospan
 ```
 
@@ -71,7 +92,7 @@ The script copies the plugin, registers a local marketplace, and installs it. En
 With Git, Node.js 20+, and a Codex CLI with plugin commands installed, run:
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
+git clone --branch main --single-branch https://github.com/XHToken/codex-XCoSpan.git
 cd codex-XCoSpan
 node install.mjs
 ```
@@ -105,7 +126,7 @@ The default detector runs offline. An optional configured detection service rece
 | Document | Purpose |
 | --- | --- |
 | [Installation](docs/installation.md) · [Usage](docs/usage.md) | Setup and everyday operation |
-| [Configuration](docs/configuration.md) | Optional dictionary, rules, and detection service |
+| [Configuration](docs/configuration.md) | Model providers, Responses API requirements, optional dictionary, rules, and detection service |
 | [Architecture](docs/architecture.md) | Modules, workflow, and compatibility entry points |
 | [Contributing](CONTRIBUTING.md) | Build, test, and release checks |
 | [Routing reference](skills/privacy-routing/references/routing-policy.md) | Agent-facing protocol and authorization rules |

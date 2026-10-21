@@ -2,6 +2,8 @@
 
 [项目首页](../../README.zh-CN.md) · [English](../usage.md)
 
+使用 `main` 前，请先完成[统一供应商入口与 Responses API 接入](configuration.md#模型供应商与-api-协议)：原生 subagent 会继承主会话供应商。若需分别使用不同供应商，请安装 [Exec 替代方案](installation.md#安装-exec-替代方案)，通过独立 Codex 进程分析；两侧端点仍须兼容 Responses API。
+
 ## 开始一次任务
 
 安装后，确认插件及其技能、MCP 服务和 Hooks 已启用，按宿主提示信任 Hooks，并打开新聊天。首次使用可以提及 **Edge-Cloud Collaboration**，然后用普通自然语言描述任务；后续消息不必反复提及插件名。

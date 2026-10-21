@@ -1,8 +1,36 @@
-# Detection configuration
+# Model connection and detection configuration
 
 [Project home](../README.md) · [简体中文](zh-CN/configuration.md)
 
-The default configuration is ready to use: rule detection runs offline, and the local main chat performs semantic review. Configure the options on this page only if you need enterprise dictionaries, custom rules, or an additional detection service. See the [usage guide](usage.md) for everyday operations and [Privacy and data flow](privacy.md) for data destinations.
+First connect the models as described below. Detection needs no additional setup by default: rules run offline, and the local main chat performs semantic review. Enterprise dictionaries, custom rules and a separate detection service are optional. See the [usage guide](usage.md) for everyday operations and [Privacy and data flow](privacy.md) for data destinations.
+
+## Model providers and API protocol
+
+### Current Codex subagent limitation
+
+As of 2026-10-21, native Codex subagents inherit the parent session's provider. They can use a different model ID, but a custom agent's `model_provider` does not override the parent's provider. See the [official subagent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents#custom-agents).
+
+The `main` plugin creates native subagents through host tools; it cannot supply a separate provider, endpoint or credential set for the cloud subagent. Merely configuring two providers or writing a cloud model name in the task does not connect them independently.
+
+### main: unify local and cloud models behind a gateway
+
+Before using local/cloud collaboration on `main`:
+
+1. Use a third-party gateway to expose the local main-session model and cloud analysis model through one provider/base URL, with distinct model IDs that route to the intended backend.
+2. Make that entry point speak the **Responses API** for both models, including the streaming and tool-call behavior Codex needs. If a backend only supports Chat Completions or another protocol, the gateway must adapt requests and responses; changing the endpoint path alone is insufficient. See [gateway compatibility requirements](https://learn.chatgpt.com/docs/enterprise/gateway-compatibility).
+3. Configure that provider in the host's user-level Codex configuration. Select the local model for the main session and make the cloud model available for subagent selection through the same provider. Verify the actual routes before submitting private material.
+
+The plugin does not install a gateway, deploy models or perform this protocol conversion. The gateway handling main-session requests can see original material: deploy that path locally or in the approved environment needed for your privacy boundary, and route the main-session model to local inference. One shared URL does not itself make inference local. See [privacy and data flow](privacy.md).
+
+### exec: use a separate Codex process for cloud analysis
+
+If the main session and cloud analysis need different providers, install the [`exec` branch](https://github.com/XHToken/codex-XCoSpan/tree/exec). It replaces the native subagent with a separate `codex exec` process whose provider, base URL and credentials are configured independently. A shared provider entry point is no longer required, but **both model endpoints must still provide Responses API compatibility**, directly or through an adapter; Exec does not convert arbitrary model protocols.
+
+Install **Edge-Cloud Collaboration (Exec)** (`codex-local-privacy-router-exec`) using the [Exec installation steps](installation.md#install-the-exec-alternative), then configure its cloud model on the plugin detail page. Main and Exec have independent identities and settings; enable one version per chat.
+
+### Optional detector uses a separate protocol
+
+These Responses API requirements apply to Codex main-session and cloud-analysis inference. The optional `local_model` detector below is a separate service invoked by MCP and still uses **Chat Completions**. It neither selects the main-session provider nor configures subagent or Exec routing.
 
 ## Protection categories
 

@@ -6,6 +6,12 @@ The plugin consists of agent instructions, Hooks, a Node.js MCP server, and a co
 
 See the [usage guide](usage.md) for operating steps and [privacy and data flow](privacy.md) for deployment boundaries. The [routing protocol reference](../skills/privacy-routing/references/routing-policy.md) is the implementation reference for tool fields, offset rules, and call constraints.
 
+## Provider boundary and Exec alternative
+
+On `main`, native subagents inherit the main session's provider even when their model IDs differ. Local-main/cloud-subagent deployments therefore need a third-party gateway that routes both models behind one provider/base URL and exposes the Responses API. The MCP server does not configure providers or translate inference protocols. See [model connection requirements](configuration.md#model-providers-and-api-protocol).
+
+The [`exec` branch](https://github.com/XHToken/codex-XCoSpan/tree/exec) replaces the native subagent with a separate `codex exec` process. Each process can use its own provider/base URL and credentials; each model endpoint must still be Responses-compatible. Use the [Exec installation steps](installation.md#install-the-exec-alternative) for that implementation. The branches evolve independently.
+
 ## Module responsibilities
 
 | Path | Responsibility |

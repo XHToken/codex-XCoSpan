@@ -2,6 +2,8 @@
 
 [Project home](../README.md) · [简体中文](zh-CN/usage.md)
 
+Before using `main`, complete the [shared-provider Responses API setup](configuration.md#model-providers-and-api-protocol): native subagents inherit the main session’s provider. For separate providers, install the [Exec alternative](installation.md#install-the-exec-alternative), which runs a separate Codex process; both endpoints still need Responses API compatibility.
+
 ## Start a task
 
 After installation, enable the plugin, its skills, MCP service, and Hooks. Trust the Hooks when the host prompts you, then open a new chat. You can mention **Edge-Cloud Collaboration** in your first request and describe the task in ordinary language. You do not need to repeat the plugin name in later messages.

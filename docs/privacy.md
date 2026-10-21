@@ -9,6 +9,7 @@ This plugin helps the main session assess task sensitivity before choosing local
 | Stage | Content accessed and destination |
 | --- | --- |
 | Codex main session | Receives your request and reads the original material needed for the task. The model's location depends on the host configuration. The plugin asks for confirmation but cannot verify that the model actually runs locally. |
+| Unified model gateway on main | Receives requests for both the local main model and the cloud subagent, including original material in main-session requests. Its placement, model routing and logging must preserve the intended local-processing boundary; a shared Responses API entry point alone does not guarantee locality. |
 | Default detection | A local Node.js process runs rules and enterprise dictionaries without calling model endpoints. The main session still performs semantic assessment. |
 | Optional separate detection service | Sends chunks of the original text to the configured endpoint only when explicitly enabled. That service can see the content; its operator determines deployment location and data retention. |
 | Redaction comparison UI | Receives the original text and replacement mapping through host-provided UI metadata so you can compare both sides. |

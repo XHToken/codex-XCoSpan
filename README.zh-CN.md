@@ -14,10 +14,31 @@
 
 ![codex-XCoSpan 架构：本地任务分流、脱敏与人工审阅、云端分析及本地交付](assets/architecture.zh-CN.webp)
 
+## 模型供应商限制与分支选择
+
+> **`main` 版本使用 Codex 原生 subagent。目前 subagent 继承主会话的模型供应商，不能为主会话和 subagent 分别指定不同的供应商；选择不同模型不等于切换供应商。**
+
+如果在 `main` 中使用“本地主会话模型 + 云端 subagent”，需先借助第三方网关，将两类模型接入**同一个供应商入口（provider/base URL）**，按模型 ID 分流，并统一适配成 **Responses API 协议**。插件不内置网关，也不负责模型协议转换。详见[模型接入要求](docs/zh-CN/configuration.md#模型供应商与-api-协议)。
+
+| 分支 | 云端分析方式 | 模型接入要求 |
+| --- | --- | --- |
+| `main` | Codex 原生 subagent | 主会话与 subagent 共用一个供应商入口，由网关分流本地/云端模型并提供 Responses API 兼容接口。 |
+| [`exec`](https://github.com/XHToken/codex-XCoSpan/tree/exec) | 独立的 `codex exec` 进程 | 主会话与独立进程可以使用不同的供应商和接口地址；各自的模型端点仍须直接支持或经适配提供 Responses API。 |
+
+希望使用独立进程方案时，安装 Exec 插件：
+
+```sh
+codex plugin marketplace add XHToken/codex-XCoSpan --ref exec
+codex plugin add codex-local-privacy-router-exec@codex-xcospan-exec
+```
+
+客户端显示为 **Edge-Cloud Collaboration (Exec)**。安装后需单独配置云端供应商和模型；同一聊天请选择一个版本启用。完整步骤见 [Exec 安装指南](https://github.com/XHToken/codex-XCoSpan/blob/exec/docs/zh-CN/installation.md)。
+
 ## 使用前准备
 
 - 本机安装 Node.js 20+，供插件运行本地服务。
 - 使用 Codex 桌面端；通过命令行安装时，还需支持 `plugin` 命令的 Codex CLI。
+- 使用 `main` 前，先通过网关统一接入本地/云端模型并适配 Responses API，或选择上方 Exec 方案。
 - **提交私密材料前，先在宿主中配置本地部署的主会话模型。** 安装本插件不会部署模型、切换当前模型，也不会把已有的云端聊天变成本地聊天。
 
 ## 安装
@@ -38,7 +59,7 @@
 准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
 
 ```sh
-codex plugin marketplace add XHToken/codex-XCoSpan
+codex plugin marketplace add XHToken/codex-XCoSpan --ref main
 codex plugin add codex-local-privacy-router@codex-xcospan
 ```
 
@@ -71,7 +92,7 @@ node install.mjs
 准备 Git、Node.js 20+ 和支持插件命令的 Codex CLI，运行：
 
 ```sh
-git clone https://github.com/XHToken/codex-XCoSpan.git
+git clone --branch main --single-branch https://github.com/XHToken/codex-XCoSpan.git
 cd codex-XCoSpan
 node install.mjs
 ```
@@ -108,7 +129,7 @@ node install.mjs
 | --- | --- |
 | [安装指南](docs/zh-CN/installation.md) | 环境、安装、验证、更新与排障 |
 | [使用指南](docs/zh-CN/usage.md) | 提交任务、查看对照、修正、确认与继续 |
-| [检测配置](docs/zh-CN/configuration.md) | 可选企业词表、自定义规则与检测服务 |
+| [模型与检测配置](docs/zh-CN/configuration.md) | 模型供应商、Responses API 接入要求，以及可选词表、规则与检测服务 |
 | [架构说明](docs/zh-CN/architecture.md) | 模块职责、工作流与兼容入口 |
 | [贡献指南](CONTRIBUTING.md) | 开发、测试和发布检查 |
 | [路由参考](skills/privacy-routing/references/routing-policy.md) | 面向代理的协议与授权规则 |
